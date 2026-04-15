@@ -9,7 +9,8 @@
     "preview": "electron-vite preview",
     "start": "electron .",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
-    "package": "electron-vite build && electron-builder"
+    "icons": "node scripts/generate-icons.mjs",
+    "package": "npm run icons && electron-vite build && electron-builder"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",
@@ -30,6 +31,7 @@
     "@vitejs/plugin-react": "^4.2.1",
     "electron": "^28.2.0",
     "electron-builder": "^24.13.3",
+    "sharp": "^0.33.5",
     "electron-vite": "^2.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"

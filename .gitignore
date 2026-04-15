@@ -3,3 +3,4 @@ out/
 dist/
 data/data.json
 .tsbuildinfo/
+build/icon.png

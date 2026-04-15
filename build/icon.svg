@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#161E35"/>
+      <stop offset="100%" stop-color="#0C1422"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS-style rounded square background -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+
+  <!-- "Peer" in white, bold -->
+  <text
+    x="512" y="470"
+    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+    font-size="218" font-weight="700"
+    fill="#F2F2F7" text-anchor="middle"
+  >Peer</text>
+
+  <!-- "notes" in accent blue, below -->
+  <text
+    x="512" y="685"
+    font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+    font-size="178" font-weight="600"
+    fill="#0A84FF" text-anchor="middle" letter-spacing="3"
+  >notes</text>
+</svg>

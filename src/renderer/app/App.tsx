@@ -52,7 +52,6 @@ const TitleBar = styled.div`
 const TabBar = styled.nav`
   display: flex;
   gap: ${({ theme }) => theme.spacing['1']};
-  -webkit-app-region: no-drag;
   flex: 1;
 `
 
@@ -67,6 +66,7 @@ const Tab = styled.button<{ $active: boolean }>`
   font-weight: ${({ $active, theme }) =>
     $active ? theme.typography.weight.semibold : theme.typography.weight.regular};
   cursor: pointer;
+  -webkit-app-region: no-drag;
   transition: all 0.1s ease;
 
   &:hover {
@@ -168,7 +168,7 @@ export function App({ mode, setThemeMode }: Props) {
   const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
-  const { people, peopleById, addPerson, removePerson, refresh: refreshPeople } = usePeople()
+  const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople()
   const { notes, removeNote, refresh: refreshNotes } = useNotes()
 
   const noteCountById = useMemo(
@@ -252,6 +252,7 @@ export function App({ mode, setThemeMode }: Props) {
               people={people}
               noteCountById={noteCountById}
               onAdd={addPerson}
+              onRename={renamePerson}
               onRemove={removePerson}
             />
           )}

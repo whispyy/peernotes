@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import styled from 'styled-components'
 import type { Person } from '@shared/types'
 import { Avatar } from '../../atoms/Avatar'
@@ -9,8 +9,11 @@ interface Props {
   people: Person[]
   noteCountById: Record<string, number>
   onAdd: (name: string) => Promise<void>
+  onRename: (id: string, name: string) => Promise<void>
   onRemove: (id: string) => Promise<void>
 }
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const Wrapper = styled.div`
   max-width: 560px;
@@ -52,6 +55,12 @@ const NoteCount = styled.span`
   color: ${({ theme }) => theme.colors.text.muted};
 `
 
+const Actions = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing['1.5']};
+  flex-shrink: 0;
+`
+
 const SectionTitle = styled.h2<{ $mb?: boolean }>`
   margin: 0;
   margin-bottom: ${({ $mb, theme }) => ($mb ? theme.spacing['3'] : '0')};
@@ -66,9 +75,27 @@ const Empty = styled.div`
   padding: ${({ theme }) => theme.spacing['4']} 0;
 `
 
-export function PeopleManager({ people, noteCountById, onAdd, onRemove }: Props) {
+const RenameError = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs ?? theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.danger};
+  padding: 2px ${({ theme }) => theme.spacing['3']};
+`
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove }: Props) {
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameError, setRenameError] = useState('')
+  const [renaming, setRenaming] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (renamingId) renameInputRef.current?.focus()
+  }, [renamingId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,6 +108,37 @@ export function PeopleManager({ people, noteCountById, onAdd, onRemove }: Props)
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const startRename = (p: Person) => {
+    setRenamingId(p.id)
+    setRenameValue(p.name)
+    setRenameError('')
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
+    setRenameError('')
+  }
+
+  const submitRename = async (id: string, originalName: string) => {
+    const trimmed = renameValue.trim()
+    if (!trimmed || trimmed === originalName) { cancelRename(); return }
+    setRenaming(true)
+    try {
+      await onRename(id, trimmed)
+      cancelRename()
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : 'Could not rename')
+    } finally {
+      setRenaming(false)
+    }
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, id: string, originalName: string) => {
+    if (e.key === 'Enter') { e.preventDefault(); submitRename(id, originalName) }
+    if (e.key === 'Escape') cancelRename()
   }
 
   return (
@@ -107,18 +165,55 @@ export function PeopleManager({ people, noteCountById, onAdd, onRemove }: Props)
         ) : (
           <List>
             {people.map((p) => (
-              <PersonRow key={p.id}>
-                <Avatar name={p.name} size={32} />
-                <PersonName>{p.name}</PersonName>
-                <NoteCount>{noteCountById[p.id] ?? 0} notes</NoteCount>
-                <Button
-                  $variant="danger"
-                  $size="sm"
-                  onClick={() => onRemove(p.id)}
-                >
-                  Remove
-                </Button>
-              </PersonRow>
+              <div key={p.id}>
+                <PersonRow>
+                  <Avatar name={renamingId === p.id ? renameValue || p.name : p.name} size={32} />
+
+                  {renamingId === p.id ? (
+                    <Input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) => { setRenameValue(e.target.value); setRenameError('') }}
+                      onKeyDown={(e) => handleRenameKeyDown(e, p.id, p.name)}
+                      style={{ flex: 1 }}
+                    />
+                  ) : (
+                    <>
+                      <PersonName>{p.name}</PersonName>
+                      <NoteCount>{noteCountById[p.id] ?? 0} notes</NoteCount>
+                    </>
+                  )}
+
+                  <Actions>
+                    {renamingId === p.id ? (
+                      <>
+                        <Button
+                          $size="sm"
+                          onClick={() => submitRename(p.id, p.name)}
+                          disabled={renaming || !renameValue.trim()}
+                        >
+                          Save
+                        </Button>
+                        <Button $variant="ghost" $size="sm" onClick={cancelRename} disabled={renaming}>
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button $variant="ghost" $size="sm" onClick={() => startRename(p)}>
+                          Rename
+                        </Button>
+                        <Button $variant="danger" $size="sm" onClick={() => onRemove(p.id)}>
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </Actions>
+                </PersonRow>
+                {renamingId === p.id && renameError && (
+                  <RenameError>{renameError}</RenameError>
+                )}
+              </div>
             ))}
           </List>
         )}

@@ -17,6 +17,7 @@ declare global {
       people: {
         list: () => Promise<Person[]>
         add: (name: string) => Promise<Person>
+        rename: (id: string, name: string) => Promise<void>
         remove: (id: string) => Promise<void>
       }
       notes: {

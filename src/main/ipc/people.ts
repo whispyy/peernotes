@@ -29,6 +29,22 @@ export function registerPeopleHandlers(): void {
     return person
   })
 
+  ipcMain.handle('people:rename', (_e, id: string, name: string): void => {
+    const trimmed = name?.trim() ?? ''
+    if (!id || typeof id !== 'string') throw new Error('Invalid id')
+    if (!trimmed)             throw new Error('Name is required')
+    if (trimmed.length > 200) throw new Error('Name too long')
+
+    const db = getDb()
+    db.transaction(() => {
+      const conflict = db.prepare(
+        'SELECT id FROM people WHERE name = ? COLLATE NOCASE AND id != ?'
+      ).get(trimmed, id)
+      if (conflict) throw new Error('Name already taken')
+      db.prepare('UPDATE people SET name = ? WHERE id = ?').run(trimmed, id)
+    })()
+  })
+
   ipcMain.handle('people:remove', (_e, id: string): void => {
     if (!id || typeof id !== 'string') return
     // Notes cascade via FK ON DELETE CASCADE

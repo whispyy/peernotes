@@ -19,6 +19,14 @@ export function usePeople() {
     return p
   }, [])
 
+  const renamePerson = useCallback(async (id: string, name: string) => {
+    await window.api.people.rename(id, name)
+    setPeople((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name } : p))
+          .sort((a, b) => a.name.localeCompare(b.name))
+    )
+  }, [])
+
   const removePerson = useCallback(async (id: string) => {
     await window.api.people.remove(id)
     setPeople((prev) => prev.filter((p) => p.id !== id))
@@ -29,5 +37,5 @@ export function usePeople() {
     [people]
   )
 
-  return { people, peopleById, loading, addPerson, removePerson, refresh }
+  return { people, peopleById, loading, addPerson, renamePerson, removePerson, refresh }
 }

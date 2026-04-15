@@ -119,6 +119,32 @@ const Segment = styled.button<{ $active: boolean }>`
         `}
 `
 
+// ─── Keyboard shortcut ───────────────────────────────────────────────────────
+
+const KbdGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['1']};
+`
+
+const Kbd = styled.kbd`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: ${({ theme }) => theme.spacing['1']} ${({ theme }) => theme.spacing['2']};
+  background: ${({ theme }) => theme.colors.bg.primary};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  font-style: normal;
+  color: ${({ theme }) => theme.colors.text.muted};
+  line-height: 1;
+  white-space: nowrap;
+`
+
 // ─── Danger zone ─────────────────────────────────────────────────────────────
 
 const ConfirmRow = styled(Row)`
@@ -185,6 +211,25 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Pr
                 </Segment>
               ))}
             </SegmentedControl>
+          </Row>
+        </Card>
+      </Section>
+
+      {/* ── Shortcuts ──────────────────────────────────────────────── */}
+      <Section>
+        <SectionLabel>Shortcuts</SectionLabel>
+        <Card>
+          <Row>
+            <RowMeta>
+              <RowTitle>Quick entry</RowTitle>
+              <RowDesc>Open the note panel from anywhere on your Mac</RowDesc>
+            </RowMeta>
+            <KbdGroup>
+              <Kbd>⌃</Kbd>
+              <Kbd>⌘</Kbd>
+              <Kbd>⌥</Kbd>
+              <Kbd>Space</Kbd>
+            </KbdGroup>
           </Row>
         </Card>
       </Section>

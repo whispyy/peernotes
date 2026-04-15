@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   people: {
     list: (): Promise<Person[]> => ipcRenderer.invoke('people:list'),
     add: (name: string): Promise<Person> => ipcRenderer.invoke('people:add', name),
+    rename: (id: string, name: string): Promise<void> => ipcRenderer.invoke('people:rename', id, name),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('people:remove', id)
   },
   notes: {

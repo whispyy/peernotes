@@ -10,16 +10,8 @@ permissions:
 
 jobs:
   build:
-    name: Build (${{ matrix.arch }})
-    strategy:
-      matrix:
-        include:
-          - os: macos-14   # Apple Silicon — builds arm64 natively
-            arch: arm64
-          - os: macos-13   # Intel — builds x64 natively
-            arch: x64
-
-    runs-on: ${{ matrix.os }}
+    name: Build
+    runs-on: macos-14   # Apple Silicon — cross-compiles x64 via macOS toolchain
 
     steps:
       - name: Checkout
@@ -37,8 +29,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package
-        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+      - name: Package arm64
+        run: npx electron-builder --mac --arm64 --publish never
+
+      - name: Package x64
+        run: npx electron-builder --mac --x64 --publish never
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

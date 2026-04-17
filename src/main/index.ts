@@ -7,11 +7,13 @@ import { registerExportHandlers } from './ipc/export'
 import { registerImportHandlers } from './ipc/import'
 import { registerSettingsHandlers } from './ipc/settings'
 import { closeDb } from './store/db'
+import { checkForUpdates } from './updater'
 
 let tray: Tray | null = null
 
 function createTray(): void {
-  const icon = nativeImage.createFromPath(join(__dirname, '../../resources/tray-icon.png'))
+  const resourcesPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
+  const icon = nativeImage.createFromPath(join(resourcesPath, 'tray-iconTemplate.png'))
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
   tray.setToolTip('Peernotes')
 
@@ -34,6 +36,7 @@ function createTray(): void {
       }
     },
     { type: 'separator' },
+    { label: 'Check for Updates…', click: () => checkForUpdates(false) },
     { label: 'Quit', click: () => app.quit() }
   ])
 
@@ -49,6 +52,10 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
+  if (!app.isPackaged && process.platform === 'darwin') {
+    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
+
   registerPeopleHandlers()
   registerNotesHandlers()
   registerExportHandlers()
@@ -59,6 +66,9 @@ app.whenReady().then(() => {
   createTray()
 
   globalShortcut.register('Ctrl+Cmd+Alt+Space', toggleQuickEntry)
+
+  // Silent update check at startup — will only prompt if a newer version exists
+  setTimeout(() => checkForUpdates(true), 3000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

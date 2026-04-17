@@ -45,6 +45,9 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      { "from": "resources", "to": "." }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "identity": null,

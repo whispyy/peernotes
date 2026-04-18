@@ -56,4 +56,27 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 1')
   }
+
+  if (version < 2) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS ai_settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_purposes (
+          id            TEXT PRIMARY KEY,
+          name          TEXT NOT NULL,
+          system_prompt TEXT NOT NULL,
+          sort_order    INTEGER NOT NULL DEFAULT 0
+        );
+
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('enabled', 'false');
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('api_key', '');
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('model', '');
+      `)
+    })()
+    db.pragma('user_version = 2')
+  }
 }

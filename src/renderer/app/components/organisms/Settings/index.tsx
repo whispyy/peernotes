@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
+import type { AiPurposePreset, AiSettings } from '@shared/types'
 import { Button } from '../../atoms/Button'
+import { Input } from '../../atoms/Input'
+import { TextArea } from '../../atoms/TextArea'
 
 interface Props {
   mode: ThemeMode
@@ -162,6 +165,141 @@ const ErrorDesc = styled.span`
   color: ${({ theme }) => theme.colors.danger};
 `
 
+// ─── Toggle ──────────────────────────────────────────────────────────────────
+
+const ToggleLabel = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+`
+
+const ToggleInput = styled.input`
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+
+  &:checked + span {
+    background: ${({ theme }) => theme.colors.accent};
+  }
+
+  &:checked + span::before {
+    transform: translateX(16px);
+  }
+`
+
+const ToggleSlider = styled.span`
+  position: absolute;
+  inset: 0;
+  background: ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.full};
+  transition: background 0.2s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+  }
+`
+
+// ─── AI settings inline inputs ───────────────────────────────────────────────
+
+const InputRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing['2']};
+  padding: ${({ theme }) => theme.spacing['4']};
+`
+
+const InputLabel = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  font-weight: ${({ theme }) => theme.typography.weight.medium};
+  color: ${({ theme }) => theme.colors.text.secondary};
+`
+
+// ─── Purpose presets ─────────────────────────────────────────────────────────
+
+const PurposeList = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+const PurposeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['3']};
+  padding: ${({ theme }) => theme.spacing['3']} ${({ theme }) => theme.spacing['4']};
+
+  &:not(:last-child) {
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  }
+`
+
+const PurposeMeta = styled.div`
+  flex: 1;
+  min-width: 0;
+`
+
+const PurposeName = styled.div`
+  font-size: ${({ theme }) => theme.typography.size.base};
+  font-weight: ${({ theme }) => theme.typography.weight.medium};
+  color: ${({ theme }) => theme.colors.text.primary};
+`
+
+const PurposePromptPreview = styled.div`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`
+
+const PurposeActions = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing['1.5']};
+  flex-shrink: 0;
+`
+
+const PurposeEditArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing['2']};
+  padding: ${({ theme }) => theme.spacing['4']};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border.subtle};
+`
+
+const EditActions = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing['2']};
+  justify-content: flex-end;
+`
+
+const AddPresetRow = styled.button`
+  width: 100%;
+  padding: ${({ theme }) => theme.spacing['3']} ${({ theme }) => theme.spacing['4']};
+  background: none;
+  border: none;
+  text-align: left;
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.accent};
+  cursor: pointer;
+  transition: color 0.1s ease;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.accentHover};
+  }
+`
+
 // ─── Theme options ────────────────────────────────────────────────────────────
 
 const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
@@ -172,10 +310,63 @@ const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
 
 type ResetState = 'idle' | 'confirm' | 'deleting' | 'error'
 
+// ─── Purpose editor sub-component ────────────────────────────────────────────
+
+interface PurposeEditorProps {
+  initial: { name: string; systemPrompt: string }
+  onSave: (name: string, systemPrompt: string) => Promise<void>
+  onCancel: () => void
+}
+
+function PurposeEditor({ initial, onSave, onCancel }: PurposeEditorProps) {
+  const [name, setName] = useState(initial.name)
+  const [prompt, setPrompt] = useState(initial.systemPrompt)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!name.trim() || !prompt.trim()) return
+    setSaving(true)
+    await onSave(name.trim(), prompt.trim())
+    setSaving(false)
+  }
+
+  return (
+    <PurposeEditArea>
+      <Input
+        value={name}
+        placeholder="Preset name (e.g. Review Prep)"
+        onChange={(e) => setName(e.target.value)}
+      />
+      <TextArea
+        rows={4}
+        value={prompt}
+        placeholder="System prompt — describe how the summary should be written and what to focus on."
+        onChange={(e) => setPrompt(e.target.value)}
+      />
+      <EditActions>
+        <Button $variant="ghost" $size="sm" onClick={onCancel} disabled={saving}>Cancel</Button>
+        <Button $variant="primary" $size="sm" onClick={handleSave} disabled={saving || !name.trim() || !prompt.trim()}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      </EditActions>
+    </PurposeEditArea>
+  )
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Props) {
   const [resetState, setResetState] = useState<ResetState>('idle')
+
+  // AI settings state
+  const [aiSettings, setAiSettings] = useState<AiSettings>({
+    enabled: false, apiKey: '', model: '', purposes: []
+  })
+  const [editingPurposeId, setEditingPurposeId] = useState<string | 'new' | null>(null)
+
+  useEffect(() => {
+    window.api.ai.settings.get().then(setAiSettings)
+  }, [])
 
   const handleReset = async () => {
     setResetState('deleting')
@@ -186,6 +377,41 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Pr
     } catch {
       setResetState('error')
     }
+  }
+
+  const setAiEnabled = async (enabled: boolean) => {
+    await window.api.ai.settings.set({ enabled })
+    setAiSettings((s) => ({ ...s, enabled }))
+  }
+
+  const setApiKey = async (apiKey: string) => {
+    await window.api.ai.settings.set({ apiKey })
+    setAiSettings((s) => ({ ...s, apiKey }))
+  }
+
+  const setModel = async (model: string) => {
+    await window.api.ai.settings.set({ model })
+    setAiSettings((s) => ({ ...s, model }))
+  }
+
+  const handleAddPurpose = async (name: string, systemPrompt: string) => {
+    const preset = await window.api.ai.purposes.add({ name, systemPrompt })
+    setAiSettings((s) => ({ ...s, purposes: [...s.purposes, preset] }))
+    setEditingPurposeId(null)
+  }
+
+  const handleUpdatePurpose = async (id: string, name: string, systemPrompt: string) => {
+    await window.api.ai.purposes.update({ id, name, systemPrompt })
+    setAiSettings((s) => ({
+      ...s,
+      purposes: s.purposes.map((p) => p.id === id ? { ...p, name, systemPrompt } : p)
+    }))
+    setEditingPurposeId(null)
+  }
+
+  const handleRemovePurpose = async (id: string) => {
+    await window.api.ai.purposes.remove(id)
+    setAiSettings((s) => ({ ...s, purposes: s.purposes.filter((p) => p.id !== id) }))
   }
 
   return (
@@ -232,6 +458,95 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Pr
             </KbdGroup>
           </Row>
         </Card>
+      </Section>
+
+      {/* ── AI Summaries ───────────────────────────────────────────── */}
+      <Section>
+        <SectionLabel>AI Summaries</SectionLabel>
+        <Card>
+          <Row>
+            <RowMeta>
+              <RowTitle>Enable AI Summaries</RowTitle>
+              <RowDesc>Generate smart summaries of notes using an AI model via OpenRouter</RowDesc>
+            </RowMeta>
+            <ToggleLabel>
+              <ToggleInput
+                type="checkbox"
+                checked={aiSettings.enabled}
+                onChange={(e) => setAiEnabled(e.target.checked)}
+              />
+              <ToggleSlider />
+            </ToggleLabel>
+          </Row>
+
+          {aiSettings.enabled && (
+            <>
+              <RowDivider />
+              <InputRow>
+                <InputLabel>OpenRouter API Key</InputLabel>
+                <Input
+                  type="password"
+                  value={aiSettings.apiKey}
+                  placeholder="sk-or-…"
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+              </InputRow>
+              <RowDivider />
+              <InputRow>
+                <InputLabel>Model</InputLabel>
+                <Input
+                  value={aiSettings.model}
+                  placeholder="e.g. anthropic/claude-3.5-sonnet"
+                  onChange={(e) => setModel(e.target.value)}
+                />
+              </InputRow>
+            </>
+          )}
+        </Card>
+
+        {aiSettings.enabled && (
+          <Card>
+            <PurposeList>
+              {aiSettings.purposes.map((p: AiPurposePreset) => (
+                editingPurposeId === p.id ? (
+                  <PurposeEditor
+                    key={p.id}
+                    initial={{ name: p.name, systemPrompt: p.systemPrompt }}
+                    onSave={(name, systemPrompt) => handleUpdatePurpose(p.id, name, systemPrompt)}
+                    onCancel={() => setEditingPurposeId(null)}
+                  />
+                ) : (
+                  <PurposeRow key={p.id}>
+                    <PurposeMeta>
+                      <PurposeName>{p.name}</PurposeName>
+                      <PurposePromptPreview>{p.systemPrompt}</PurposePromptPreview>
+                    </PurposeMeta>
+                    <PurposeActions>
+                      <Button $variant="ghost" $size="sm" onClick={() => setEditingPurposeId(p.id)}>
+                        Edit
+                      </Button>
+                      <Button $variant="danger" $size="sm" onClick={() => handleRemovePurpose(p.id)}>
+                        Delete
+                      </Button>
+                    </PurposeActions>
+                  </PurposeRow>
+                )
+              ))}
+
+              {editingPurposeId === 'new' ? (
+                <PurposeEditor
+                  initial={{ name: '', systemPrompt: '' }}
+                  onSave={handleAddPurpose}
+                  onCancel={() => setEditingPurposeId(null)}
+                />
+              ) : (
+                <AddPresetRow onClick={() => setEditingPurposeId('new')}>
+                  + Add purpose preset
+                </AddPresetRow>
+              )}
+            </PurposeList>
+          </Card>
+        )}
       </Section>
 
       {/* ── Data ───────────────────────────────────────────────────── */}

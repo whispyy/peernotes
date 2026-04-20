@@ -12,6 +12,7 @@ interface Props {
   onExport: () => void
   onImport: () => void
   onReset: () => void
+  workspaceId?: string | null
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -355,7 +356,7 @@ function PurposeEditor({ initial, onSave, onCancel }: PurposeEditorProps) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Props) {
+export function Settings({ mode, setThemeMode, onExport, onImport, onReset, workspaceId }: Props) {
   const [resetState, setResetState] = useState<ResetState>('idle')
 
   // AI settings state
@@ -371,7 +372,7 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset }: Pr
   const handleReset = async () => {
     setResetState('deleting')
     try {
-      await window.api.data.reset()
+      await window.api.data.reset(workspaceId ?? undefined)
       onReset()
       setResetState('idle')
     } catch {

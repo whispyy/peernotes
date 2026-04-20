@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Note, Sentiment } from '@shared/types'
 
-export function useNotes() {
+export function useNotes(workspaceId: string | null) {
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const list = await window.api.notes.list()
+    if (!workspaceId) { setNotes([]); setLoading(false); return }
+    const list = await window.api.notes.list(workspaceId)
     setNotes(list.sort((a, b) => b.timestamp.localeCompare(a.timestamp)))
     setLoading(false)
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => { refresh() }, [refresh])
 

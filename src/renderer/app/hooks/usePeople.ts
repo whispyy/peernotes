@@ -1,23 +1,25 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Person } from '@shared/types'
 
-export function usePeople() {
+export function usePeople(workspaceId: string | null) {
   const [people, setPeople] = useState<Person[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const list = await window.api.people.list()
+    if (!workspaceId) { setPeople([]); setLoading(false); return }
+    const list = await window.api.people.list(workspaceId)
     setPeople(list.sort((a, b) => a.name.localeCompare(b.name)))
     setLoading(false)
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => { refresh() }, [refresh])
 
   const addPerson = useCallback(async (name: string) => {
-    const p = await window.api.people.add(name)
+    if (!workspaceId) throw new Error('No active workspace')
+    const p = await window.api.people.add(workspaceId, name)
     setPeople((prev) => [...prev, p].sort((a, b) => a.name.localeCompare(b.name)))
     return p
-  }, [])
+  }, [workspaceId])
 
   const renamePerson = useCallback(async (id: string, name: string) => {
     await window.api.people.rename(id, name)

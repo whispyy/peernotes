@@ -11,10 +11,16 @@ export const SELECT_NOTE = `
 `
 
 export function registerNotesHandlers(): void {
-  ipcMain.handle('notes:list', (): Note[] => {
+  ipcMain.handle('notes:list', (_e, workspaceId: string): Note[] => {
     return getDb()
-      .prepare(`${SELECT_NOTE} ORDER BY timestamp DESC`)
-      .all() as Note[]
+      .prepare(`
+        SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
+        FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ?
+        ORDER BY n.timestamp DESC
+      `)
+      .all(workspaceId) as Note[]
   })
 
   ipcMain.handle(

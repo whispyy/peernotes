@@ -9,6 +9,7 @@ import {
 
 interface Props {
   notes: Note[]
+  workspaceId: string
   onClose: () => void
 }
 
@@ -100,7 +101,7 @@ type ExportStatus = 'idle' | 'loading' | 'done' | 'error'
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function ExportModal({ notes, onClose }: Props) {
+export function ExportModal({ notes, workspaceId, onClose }: Props) {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [status, setStatus] = useState<ExportStatus>('idle')
@@ -112,6 +113,7 @@ export function ExportModal({ notes, onClose }: Props) {
     setStatus('loading')
     try {
       const result = await window.api.export.run({
+        workspaceId,
         from: from || undefined,
         to: to || undefined
       })

@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
+import { randomUUID } from 'crypto'
 
 let _db: Database.Database | null = null
 
@@ -78,5 +79,43 @@ function migrate(db: Database.Database): void {
       `)
     })()
     db.pragma('user_version = 2')
+  }
+
+  if (version < 3) {
+    const defaultId = randomUUID()
+    const now = new Date().toISOString()
+    // Disable FK enforcement for the duration of this migration so that
+    // DROP TABLE people does not cascade-delete notes via ON DELETE CASCADE.
+    db.pragma('foreign_keys = OFF')
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS workspaces (
+          id         TEXT PRIMARY KEY,
+          name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          created_at TEXT NOT NULL
+        );
+      `)
+      db.prepare('INSERT INTO workspaces (id, name, created_at) VALUES (?, ?, ?)').run(defaultId, 'Default', now)
+
+      // Recreate people with workspace_id (SQLite can't add NOT NULL via ALTER TABLE)
+      db.exec(`
+        CREATE TABLE people_new (
+          id           TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+          name         TEXT NOT NULL,
+          created_at   TEXT NOT NULL,
+          UNIQUE(workspace_id, name)
+        );
+      `)
+      db.prepare(`INSERT INTO people_new (id, workspace_id, name, created_at)
+                  SELECT id, ?, name, created_at FROM people`).run(defaultId)
+      db.exec(`
+        DROP TABLE people;
+        ALTER TABLE people_new RENAME TO people;
+        CREATE INDEX IF NOT EXISTS idx_people_workspace ON people(workspace_id);
+      `)
+    })()
+    db.pragma('foreign_keys = ON')
+    db.pragma('user_version = 3')
   }
 }

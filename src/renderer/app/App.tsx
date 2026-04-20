@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import { usePeople } from './hooks/usePeople'
 import { useNotes } from './hooks/useNotes'
+import { useWorkspaces } from './hooks/useWorkspaces'
 import { Timeline } from './components/organisms/Timeline'
 import { PersonView } from './components/organisms/PersonView'
 import { PeopleManager } from './components/organisms/PeopleManager'
@@ -9,6 +10,7 @@ import { Settings } from './components/organisms/Settings'
 import { ExportModal } from './components/organisms/ExportModal'
 import { ImportModal } from './components/organisms/ImportModal'
 import { AddNoteModal } from './components/organisms/AddNoteModal'
+import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
 import type { ThemeMode } from './hooks/useThemeMode'
 
 type Tab = 'timeline' | 'person' | 'people' | 'settings'
@@ -168,8 +170,13 @@ export function App({ mode, setThemeMode }: Props) {
   const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
-  const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople()
-  const { notes, addNote, removeNote, refresh: refreshNotes } = useNotes()
+
+  const { workspaces, activeWorkspace, setActiveWorkspace, addWorkspace, renameWorkspace, removeWorkspace } =
+    useWorkspaces()
+  const workspaceId = activeWorkspace?.id ?? null
+
+  const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
+  const { notes, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
 
   const noteCountById = useMemo(
     () => Object.fromEntries(people.map((p) => [p.id, notes.filter((n) => n.personId === p.id).length])),
@@ -199,6 +206,15 @@ export function App({ mode, setThemeMode }: Props) {
       <GlobalStyle />
       <Shell>
         <TitleBar>
+          <WorkspaceSelector
+            workspaces={workspaces}
+            activeWorkspace={activeWorkspace}
+            onSelect={setActiveWorkspace}
+            onAdd={addWorkspace}
+            onRename={renameWorkspace}
+            onRemove={removeWorkspace}
+          />
+
           <TabBar>
             <Tab $active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')}>
               Timeline
@@ -264,6 +280,7 @@ export function App({ mode, setThemeMode }: Props) {
               onExport={() => setExportOpen(true)}
               onImport={() => setImportOpen(true)}
               onReset={() => { refreshPeople(); refreshNotes() }}
+              workspaceId={workspaceId}
             />
           )}
         </Content>
@@ -272,11 +289,12 @@ export function App({ mode, setThemeMode }: Props) {
       {addNoteOpen && (
         <AddNoteModal people={people} onClose={() => setAddNoteOpen(false)} />
       )}
-      {exportOpen && (
-        <ExportModal notes={notes} onClose={() => setExportOpen(false)} />
+      {exportOpen && workspaceId && (
+        <ExportModal notes={notes} workspaceId={workspaceId} onClose={() => setExportOpen(false)} />
       )}
-      {importOpen && (
+      {importOpen && workspaceId && (
         <ImportModal
+          workspaceId={workspaceId}
           onClose={() => setImportOpen(false)}
           onImported={refreshPeople}
         />

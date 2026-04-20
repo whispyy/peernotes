@@ -13,7 +13,7 @@
   <text
     x="512" y="470"
     font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
-    font-size="218" font-weight="700"
+    font-size="248" font-weight="700"
     fill="#F2F2F7" text-anchor="middle"
   >Peer</text>
 
@@ -21,7 +21,7 @@
   <text
     x="512" y="685"
     font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
-    font-size="178" font-weight="600"
+    font-size="202" font-weight="600"
     fill="#0A84FF" text-anchor="middle" letter-spacing="3"
   >notes</text>
 </svg>

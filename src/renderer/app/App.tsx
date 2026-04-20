@@ -169,7 +169,7 @@ export function App({ mode, setThemeMode }: Props) {
   const [searchQuery, setSearchQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople()
-  const { notes, removeNote, refresh: refreshNotes } = useNotes()
+  const { notes, addNote, removeNote, refresh: refreshNotes } = useNotes()
 
   const noteCountById = useMemo(
     () => Object.fromEntries(people.map((p) => [p.id, notes.filter((n) => n.personId === p.id).length])),
@@ -245,6 +245,7 @@ export function App({ mode, setThemeMode }: Props) {
               notes={filteredNotes}
               peopleById={peopleById}
               onDelete={removeNote}
+              onAddNote={addNote}
             />
           )}
           {activeTab === 'people' && (

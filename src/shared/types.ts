@@ -64,3 +64,18 @@ export interface ImportResult {
   skipped: number
   peopleCreated: number
 }
+
+// ── AI Summary ────────────────────────────────────────────────────────────────
+
+export interface AiPurposePreset {
+  id: string
+  name: string
+  systemPrompt: string
+}
+
+export interface AiSettings {
+  enabled: boolean
+  apiKey: string
+  model: string
+  purposes: AiPurposePreset[]
+}

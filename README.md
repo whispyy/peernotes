@@ -11,7 +11,8 @@ A private macOS app to log honest notes about your teammates. Capture moments as
 - **Full-text search** — Search across note content and people names from the title bar.
 - **Export** — Export all notes or narrow to a date range. Copy JSON to clipboard or save to file.
 - **Import** — Restore from a previous export file. Duplicate notes and people are silently skipped.
-- **Settings** — Theme switcher (Auto / Light / Dark) and data management in a dedicated tab.
+- **AI Summaries** — Generate smart summaries of a person's notes over any date range using a model of your choice via OpenRouter. Choose a purpose preset (review prep, retro prep, etc.) to shape how the summary is written. Results appear as a dismissible banner and can be saved as a neutral note.
+- **Settings** — Theme switcher (Auto / Light / Dark), AI summary configuration, and data management in a dedicated tab.
 - **Local-only** — All data stays on your machine in a SQLite database in `~/Library/Application Support/peernotes`.
 
 ## Tech stack
@@ -38,14 +39,15 @@ src/
 │       ├── people.ts     # people:add, people:list, people:remove
 │       ├── export.ts     # export:run, export:saveFile
 │       ├── import.ts     # import:openFile, notes:import
-│       └── settings.ts   # settings:reset
+│       ├── settings.ts   # settings:reset
+│       └── ai.ts         # ai:settings:get/set, ai:purposes:*, ai:summarize
 ├── preload/
 │   └── index.ts          # contextBridge — exposes window.api
 ├── renderer/
 │   ├── app/              # Main dashboard window
 │   │   ├── App.tsx
 │   │   ├── theme/        # Design tokens, styled-components theme
-│   │   ├── hooks/        # usePeople, useNotes, useThemeMode
+│   │   ├── hooks/        # usePeople, useNotes, useThemeMode, useAiSettings
 │   │   └── components/
 │   │       ├── atoms/    # Button, TextArea
 │   │       ├── molecules/# ModalShell, NoteCard, PersonSelector, SentimentPicker
@@ -132,6 +134,12 @@ All channels are registered via `ipcMain.handle` and exposed through `contextBri
 | `import` | `openFile()` | Open file picker, return `{ content, name }` or `null` |
 | `import` | `run(payload)` | Import notes from parsed payload, returns counts |
 | `data` | `reset()` | Delete all notes and people |
+| `ai.settings` | `get()` | Return AI settings (enabled, apiKey, model, purposes) |
+| `ai.settings` | `set(patch)` | Update one or more AI settings fields |
+| `ai.purposes` | `add(payload)` | Create a purpose preset |
+| `ai.purposes` | `update(payload)` | Update a purpose preset |
+| `ai.purposes` | `remove(id)` | Delete a purpose preset |
+| `ai` | `summarize(payload)` | Call OpenRouter and return a summary string |
 
 ## Data format
 
@@ -171,6 +179,19 @@ CREATE TABLE people (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE ai_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+  -- keys: enabled, api_key, model
+);
+
+CREATE TABLE ai_purposes (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  system_prompt TEXT NOT NULL,
+  sort_order    INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE notes (
   id         TEXT PRIMARY KEY,
   person_id  TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
@@ -181,6 +202,31 @@ CREATE TABLE notes (
 ```
 
 WAL mode is enabled. Foreign key enforcement is on. Schema migrations are wrapped in a transaction so a mid-migration crash leaves the schema untouched and is safely re-attempted on next launch.
+
+## AI Summaries
+
+AI Summaries are powered by [OpenRouter](https://openrouter.ai), which gives you access to any model (Claude, GPT-4o, Mistral, Llama, etc.) with a single API key.
+
+### Setup
+
+1. Create an account at [openrouter.ai](https://openrouter.ai) and generate an API key.
+2. In Peernotes, open **Settings → AI Summaries** and enable the toggle.
+3. Paste your API key and enter the model string exactly as OpenRouter expects it (e.g. `anthropic/claude-3.5-sonnet`, `openai/gpt-4o`, `mistralai/mistral-7b-instruct`).
+4. Create one or more **purpose presets** — each preset has a name and a system prompt that shapes how summaries are written.
+
+### Generating a summary
+
+1. Switch to the **By Person** tab and select a person.
+2. Click **✦ Summarize** in the top-right of the feed.
+3. Pick a date range and a purpose preset, then click **✦ Generate**.
+4. The summary appears as a banner above the notes. You can **Dismiss** it, **Regenerate** with different settings, or **Save as note** to persist it as a neutral note with a `[AI Summary: …]` label.
+
+### Example purpose presets
+
+| Name | System prompt |
+|------|---------------|
+| Review Prep | You are a helpful assistant preparing bi-annual performance review notes. Given a list of observations about a team member, write a concise narrative summary that highlights key themes, strengths, and areas of growth. Be constructive and professional. |
+| Retro Prep | You are summarizing sprint retrospective notes. Highlight standout contributions, shout-outs, and recurring positive patterns from the notes provided. Keep it brief and celebratory. |
 
 ## License
 

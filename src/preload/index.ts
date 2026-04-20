@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -30,5 +30,28 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('notes:updated', cb)
       return () => ipcRenderer.removeListener('notes:updated', cb)
     }
+  },
+  ai: {
+    settings: {
+      get: (): Promise<AiSettings> => ipcRenderer.invoke('ai:settings:get'),
+      set: (patch: { enabled?: boolean; apiKey?: string; model?: string }): Promise<void> =>
+        ipcRenderer.invoke('ai:settings:set', patch),
+    },
+    purposes: {
+      add: (payload: { name: string; systemPrompt: string }): Promise<AiPurposePreset> =>
+        ipcRenderer.invoke('ai:purposes:add', payload),
+      update: (payload: { id: string; name: string; systemPrompt: string }): Promise<void> =>
+        ipcRenderer.invoke('ai:purposes:update', payload),
+      remove: (id: string): Promise<void> => ipcRenderer.invoke('ai:purposes:remove', id),
+    },
+    summarize: (payload: {
+      personName: string
+      notes: Array<{ sentiment: string; note: string; timestamp: string }>
+      from: string
+      to: string
+      systemPrompt: string
+      apiKey: string
+      model: string
+    }): Promise<{ text: string }> => ipcRenderer.invoke('ai:summarize', payload),
   }
 })

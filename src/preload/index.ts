@@ -25,7 +25,18 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id: string): Promise<void> => ipcRenderer.invoke('people:remove', id)
   },
   notes: {
-    list: (workspaceId: string): Promise<Note[]> => ipcRenderer.invoke('notes:list', workspaceId),
+    list: (workspaceId: string, offset = 0, limit = 100): Promise<Note[]> =>
+      ipcRenderer.invoke('notes:list', workspaceId, offset, limit),
+    count: (workspaceId: string, from?: string, to?: string): Promise<number> =>
+      ipcRenderer.invoke('notes:count', workspaceId, from, to),
+    search: (workspaceId: string, query: string): Promise<Note[]> =>
+      ipcRenderer.invoke('notes:search', workspaceId, query),
+    countByPerson: (workspaceId: string): Promise<Record<string, number>> =>
+      ipcRenderer.invoke('notes:count-by-person', workspaceId),
+    listForPerson: (personId: string, offset = 0, limit = 100): Promise<Note[]> =>
+      ipcRenderer.invoke('notes:list-for-person', personId, offset, limit),
+    listForPersonInRange: (personId: string, from: string, to: string): Promise<Note[]> =>
+      ipcRenderer.invoke('notes:list-for-person-in-range', personId, from, to),
     add: (payload: { personId: string; sentiment: Sentiment; note: string }): Promise<Note> =>
       ipcRenderer.invoke('notes:add', payload),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('notes:remove', id),

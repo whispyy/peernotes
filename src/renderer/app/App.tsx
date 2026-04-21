@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import { usePeople } from './hooks/usePeople'
 import { useNotes } from './hooks/useNotes'
@@ -176,21 +176,22 @@ export function App({ mode, setThemeMode }: Props) {
   const workspaceId = activeWorkspace?.id ?? null
 
   const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
-  const { notes, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
+  const { notes, hasMore, loadMore, countByPerson, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
 
-  const noteCountById = useMemo(
-    () => Object.fromEntries(people.map((p) => [p.id, notes.filter((n) => n.personId === p.id).length])),
-    [people, notes]
-  )
+  const [searchResults, setSearchResults] = useState<typeof notes>([])
+  const isSearching = searchQuery.trim().length > 0
 
-  const filteredNotes = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return notes
-    return notes.filter((n) => {
-      const person = peopleById[n.personId]
-      return n.note.toLowerCase().includes(q) || person?.name.toLowerCase().includes(q)
-    })
-  }, [notes, searchQuery, peopleById])
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q || !workspaceId) { setSearchResults([]); return }
+    const timer = setTimeout(async () => {
+      const results = await window.api.notes.search(workspaceId, q)
+      setSearchResults(results)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [searchQuery, workspaceId])
+
+  const filteredNotes = isSearching ? searchResults : notes
 
   const handleSearchKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -253,12 +254,20 @@ export function App({ mode, setThemeMode }: Props) {
 
         <Content>
           {activeTab === 'timeline' && (
-            <Timeline notes={filteredNotes} peopleById={peopleById} onDelete={removeNote} searchQuery={searchQuery} />
+            <Timeline
+              notes={filteredNotes}
+              peopleById={peopleById}
+              onDelete={removeNote}
+              searchQuery={searchQuery}
+              hasMore={hasMore && !isSearching}
+              onLoadMore={loadMore}
+            />
           )}
           {activeTab === 'person' && (
             <PersonView
               people={people}
-              notes={filteredNotes}
+              workspaceId={workspaceId}
+              countByPerson={countByPerson}
               peopleById={peopleById}
               onDelete={removeNote}
               onAddNote={addNote}
@@ -267,7 +276,7 @@ export function App({ mode, setThemeMode }: Props) {
           {activeTab === 'people' && (
             <PeopleManager
               people={people}
-              noteCountById={noteCountById}
+              noteCountById={countByPerson}
               onAdd={addPerson}
               onRename={renamePerson}
               onRemove={removePerson}
@@ -290,13 +299,13 @@ export function App({ mode, setThemeMode }: Props) {
         <AddNoteModal people={people} onClose={() => setAddNoteOpen(false)} />
       )}
       {exportOpen && workspaceId && (
-        <ExportModal notes={notes} workspaceId={workspaceId} onClose={() => setExportOpen(false)} />
+        <ExportModal workspaceId={workspaceId} onClose={() => setExportOpen(false)} />
       )}
       {importOpen && workspaceId && (
         <ImportModal
           workspaceId={workspaceId}
           onClose={() => setImportOpen(false)}
-          onImported={refreshPeople}
+          onImported={() => { refreshPeople(); refreshNotes() }}
         />
       )}
     </>

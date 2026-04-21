@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
-import type { Note, ExportResult } from '@shared/types'
+import type { ExportResult } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import {
   ModalBackdrop, Card, Header, Title, CloseBtn,
@@ -8,7 +8,6 @@ import {
 } from '../../molecules/ModalShell'
 
 interface Props {
-  notes: Note[]
   workspaceId: string
   onClose: () => void
 }
@@ -81,15 +80,6 @@ const SuccessText = styled.span`
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function countInRange(notes: Note[], from: string, to: string): number {
-  return notes.filter((n) => {
-    const ts = new Date(n.timestamp)
-    if (from && ts < new Date(from + 'T00:00:00')) return false
-    if (to && ts > new Date(to + 'T23:59:59.999')) return false
-    return true
-  }).length
-}
-
 function buildFilename(from: string, to: string): string {
   const parts = ['team-notes']
   if (from) parts.push(`from-${from}`)
@@ -101,13 +91,20 @@ type ExportStatus = 'idle' | 'loading' | 'done' | 'error'
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function ExportModal({ notes, workspaceId, onClose }: Props) {
+export function ExportModal({ workspaceId, onClose }: Props) {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [status, setStatus] = useState<ExportStatus>('idle')
   const [lastResult, setLastResult] = useState<ExportResult | null>(null)
+  const [count, setCount] = useState<number | null>(null)
 
-  const count = useMemo(() => countInRange(notes, from, to), [notes, from, to])
+  useEffect(() => {
+    let cancelled = false
+    window.api.notes.count(workspaceId, from || undefined, to || undefined).then((n) => {
+      if (!cancelled) setCount(n)
+    })
+    return () => { cancelled = true }
+  }, [workspaceId, from, to])
 
   const runExport = useCallback(async (): Promise<ExportResult | null> => {
     setStatus('loading')
@@ -180,7 +177,9 @@ export function ExportModal({ notes, workspaceId, onClose }: Props) {
               ? `Notes in selected range`
               : `All notes`}
           </PreviewLabel>
-          <PreviewCount>{count} {count === 1 ? 'note' : 'notes'}</PreviewCount>
+          <PreviewCount>
+            {count === null ? '…' : `${count} ${count === 1 ? 'note' : 'notes'}`}
+          </PreviewCount>
         </Preview>
 
         <Divider />
@@ -194,10 +193,10 @@ export function ExportModal({ notes, workspaceId, onClose }: Props) {
             {isError && <span style={{ color: 'inherit', opacity: 0.5 }}>Export failed. Try again.</span>}
           </StatusRow>
 
-          <Button $variant="ghost" $size="sm" onClick={handleCopy} disabled={isLoading || count === 0}>
+          <Button $variant="ghost" $size="sm" onClick={handleCopy} disabled={isLoading || count === 0 || count === null}>
             Copy JSON
           </Button>
-          <Button $size="sm" onClick={handleSave} disabled={isLoading || count === 0}>
+          <Button $size="sm" onClick={handleSave} disabled={isLoading || count === 0 || count === null}>
             Save to file…
           </Button>
         </Footer>

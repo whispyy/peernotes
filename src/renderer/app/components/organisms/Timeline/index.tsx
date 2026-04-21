@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import styled from 'styled-components'
 import type { Note, Person } from '@shared/types'
 import { MonthGroup } from '../../molecules/MonthGroup'
+import { LoadMore } from '../../molecules/LoadMore'
 import { groupByMonth } from '../../../utils/groupByMonth'
 
 interface Props {
@@ -8,6 +10,8 @@ interface Props {
   peopleById: Record<string, Person>
   onDelete: (id: string) => void
   searchQuery?: string
+  hasMore?: boolean
+  onLoadMore?: () => Promise<void>
 }
 
 const Wrapper = styled.div`
@@ -27,7 +31,17 @@ const Empty = styled.div`
   gap: ${({ theme }) => theme.spacing['2']};
 `
 
-export function Timeline({ notes, peopleById, onDelete, searchQuery = '' }: Props) {
+
+export function Timeline({ notes, peopleById, onDelete, searchQuery = '', hasMore, onLoadMore }: Props) {
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  const handleLoadMore = async () => {
+    if (!onLoadMore || loadingMore) return
+    setLoadingMore(true)
+    await onLoadMore()
+    setLoadingMore(false)
+  }
+
   if (notes.length === 0) {
     return (
       <Empty>
@@ -55,6 +69,7 @@ export function Timeline({ notes, peopleById, onDelete, searchQuery = '' }: Prop
           highlight={searchQuery}
         />
       ))}
+      {hasMore && <LoadMore loading={loadingMore} onClick={handleLoadMore} />}
     </Wrapper>
   )
 }

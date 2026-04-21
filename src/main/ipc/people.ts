@@ -3,26 +3,35 @@ import { v4 as uuid } from 'uuid'
 import { getDb } from '../store/db'
 import type { Person } from '@shared/types'
 
-export const SELECT_PERSON = `SELECT id, name, created_at AS createdAt FROM people`
+export const SELECT_PERSON = `SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt FROM people`
 
 export function registerPeopleHandlers(): void {
-  ipcMain.handle('people:list', (): Person[] => {
-    return getDb().prepare(`${SELECT_PERSON} ORDER BY name COLLATE NOCASE`).all() as Person[]
+  ipcMain.handle('people:list', (_e, workspaceId: string): Person[] => {
+    return getDb()
+      .prepare(`${SELECT_PERSON} WHERE workspace_id = ? ORDER BY name COLLATE NOCASE`)
+      .all(workspaceId) as Person[]
   })
 
-  ipcMain.handle('people:add', (_e, name: string): Person => {
+  ipcMain.handle('people:add', (_e, workspaceId: string, name: string): Person => {
     const trimmed = name?.trim() ?? ''
     if (!trimmed)             throw new Error('Name is required')
     if (trimmed.length > 200) throw new Error('Name too long')
 
     const db = getDb()
-    const person: Person = { id: uuid(), name: trimmed, createdAt: new Date().toISOString() }
+    const person: Person = {
+      id: uuid(),
+      workspaceId,
+      name: trimmed,
+      createdAt: new Date().toISOString()
+    }
 
     db.transaction(() => {
-      const existing = db.prepare('SELECT id FROM people WHERE name = ? COLLATE NOCASE').get(trimmed)
+      const existing = db
+        .prepare('SELECT id FROM people WHERE name = ? COLLATE NOCASE AND workspace_id = ?')
+        .get(trimmed, workspaceId)
       if (existing) throw new Error('Person already exists')
-      db.prepare('INSERT INTO people (id, name, created_at) VALUES (?, ?, ?)').run(
-        person.id, person.name, person.createdAt
+      db.prepare('INSERT INTO people (id, workspace_id, name, created_at) VALUES (?, ?, ?, ?)').run(
+        person.id, person.workspaceId, person.name, person.createdAt
       )
     })()
 
@@ -37,9 +46,11 @@ export function registerPeopleHandlers(): void {
 
     const db = getDb()
     db.transaction(() => {
-      const conflict = db.prepare(
-        'SELECT id FROM people WHERE name = ? COLLATE NOCASE AND id != ?'
-      ).get(trimmed, id)
+      const person = db.prepare('SELECT workspace_id FROM people WHERE id = ?').get(id) as { workspace_id: string } | undefined
+      if (!person) throw new Error('Person not found')
+      const conflict = db
+        .prepare('SELECT id FROM people WHERE name = ? COLLATE NOCASE AND workspace_id = ? AND id != ?')
+        .get(trimmed, person.workspace_id, id)
       if (conflict) throw new Error('Name already taken')
       db.prepare('UPDATE people SET name = ? WHERE id = ?').run(trimmed, id)
     })()

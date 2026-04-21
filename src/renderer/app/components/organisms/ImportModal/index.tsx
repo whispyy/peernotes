@@ -8,6 +8,7 @@ import {
 } from '../../molecules/ModalShell'
 
 interface Props {
+  workspaceId: string
   onClose: () => void
   onImported?: () => void
 }
@@ -139,7 +140,7 @@ function countUniquePeople(payload: ImportPayload): number {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function ImportModal({ onClose, onImported }: Props) {
+export function ImportModal({ workspaceId, onClose, onImported }: Props) {
   const [status, setStatus] = useState<ImportStatus>('idle')
   const [parsed, setParsed] = useState<ParsedFile | null>(null)
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -168,7 +169,7 @@ export function ImportModal({ onClose, onImported }: Props) {
     if (!parsed) return
     setStatus('importing')
     try {
-      const res = await window.api.import.run(parsed.payload)
+      const res = await window.api.import.run(parsed.payload, workspaceId)
       setResult(res)
       setStatus('done')
       onImported?.()

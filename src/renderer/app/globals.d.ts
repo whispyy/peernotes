@@ -1,30 +1,38 @@
-import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace } from '@shared/types'
 
 declare global {
   interface Window {
     api: {
       data: {
-        reset: () => Promise<void>
+        reset: (workspaceId: string) => Promise<void>
       }
       export: {
-        run: (payload: { from?: string; to?: string }) => Promise<ExportResult>
+        run: (payload: { workspaceId: string; from?: string; to?: string }) => Promise<ExportResult>
         saveFile: (content: string, filename: string) => Promise<boolean>
       }
       import: {
         openFile: () => Promise<{ content: string; name: string } | null>
-        run: (payload: ImportPayload) => Promise<ImportResult>
+        run: (payload: ImportPayload, workspaceId: string) => Promise<ImportResult>
       }
       people: {
-        list: () => Promise<Person[]>
-        add: (name: string) => Promise<Person>
+        list: (workspaceId: string) => Promise<Person[]>
+        add: (workspaceId: string, name: string) => Promise<Person>
         rename: (id: string, name: string) => Promise<void>
         remove: (id: string) => Promise<void>
       }
       notes: {
-        list: () => Promise<Note[]>
+        list: (workspaceId: string) => Promise<Note[]>
         add: (payload: { personId: string; sentiment: Sentiment; note: string }) => Promise<Note>
         remove: (id: string) => Promise<void>
         onUpdated: (cb: () => void) => (() => void)
+      }
+      workspace: {
+        list: () => Promise<Workspace[]>
+        add: (name: string) => Promise<Workspace>
+        rename: (id: string, name: string) => Promise<void>
+        remove: (id: string) => Promise<void>
+        getActive: () => Promise<string | null>
+        setActive: (id: string) => Promise<void>
       }
       ai: {
         settings: {

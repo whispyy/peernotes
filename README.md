@@ -4,13 +4,14 @@ A private macOS app to log honest notes about your teammates. Capture moments as
 
 ## Features
 
+- **Workspaces** — Organise notes across multiple contexts (e.g. "Team Alpha", "Consulting", "Personal"). Each workspace has its own people and notes; switching workspaces changes everything the app shows. The quick-entry overlay always targets the last active workspace.
 - **Global shortcut** — Press `⌃⌘⌥Space` from anywhere to pop up a quick-entry panel. No app-switching required.
 - **In-app note button** — `+ Note` button in the title bar for mouse-driven workflows.
 - **Sentiment tagging** — Every note is tagged positive, neutral, or negative with colour-coded badges.
 - **Two views** — A global timeline and a per-person feed grouped by month.
 - **Full-text search** — Search across note content and people names from the title bar.
-- **Export** — Export all notes or narrow to a date range. Copy JSON to clipboard or save to file.
-- **Import** — Restore from a previous export file. Duplicate notes and people are silently skipped.
+- **Export** — Export all notes or narrow to a date range, scoped to the active workspace. Copy JSON to clipboard or save to file.
+- **Import** — Restore from a previous export file into the active workspace. Duplicate notes and people are silently skipped.
 - **AI Summaries** — Generate smart summaries of a person's notes over any date range using a model of your choice via OpenRouter. Choose a purpose preset (review prep, retro prep, etc.) to shape how the summary is written. Results appear as a dismissible banner and can be saved as a neutral note.
 - **Settings** — Theme switcher (Auto / Light / Dark), AI summary configuration, and data management in a dedicated tab.
 - **Local-only** — All data stays on your machine in a SQLite database in `~/Library/Application Support/peernotes`.
@@ -37,6 +38,7 @@ src/
 │   └── ipc/
 │       ├── notes.ts      # notes:add, notes:list, notes:remove
 │       ├── people.ts     # people:add, people:list, people:remove
+│       ├── workspaces.ts # workspace:list/add/rename/remove/getActive/setActive
 │       ├── export.ts     # export:run, export:saveFile
 │       ├── import.ts     # import:openFile, notes:import
 │       ├── settings.ts   # settings:reset
@@ -47,12 +49,12 @@ src/
 │   ├── app/              # Main dashboard window
 │   │   ├── App.tsx
 │   │   ├── theme/        # Design tokens, styled-components theme
-│   │   ├── hooks/        # usePeople, useNotes, useThemeMode, useAiSettings
+│   │   ├── hooks/        # usePeople, useNotes, useWorkspaces, useThemeMode, useAiSettings
 │   │   └── components/
 │   │       ├── atoms/    # Button, TextArea
 │   │       ├── molecules/# ModalShell, NoteCard, PersonSelector, SentimentPicker
 │   │       └── organisms/# Timeline, PersonView, PeopleManager, Settings,
-│   │                     #   AddNoteModal, ExportModal, ImportModal
+│   │                     #   AddNoteModal, ExportModal, ImportModal, WorkspaceSelector
 │   └── quick-entry/      # Floating overlay window (global shortcut target)
 └── shared/
     └── types.ts          # Shared TypeScript types and constants
@@ -123,17 +125,23 @@ All channels are registered via `ipcMain.handle` and exposed through `contextBri
 
 | Namespace | Method | Description |
 |-----------|--------|-------------|
+| `workspace` | `list()` | Return all workspaces |
+| `workspace` | `add(name)` | Create a workspace |
+| `workspace` | `rename(id, name)` | Rename a workspace |
+| `workspace` | `remove(id)` | Delete a workspace and cascade-delete its people and notes |
+| `workspace` | `getActive()` | Return the active workspace ID (in-memory, main process) |
+| `workspace` | `setActive(id)` | Set the active workspace ID |
 | `notes` | `add(payload)` | Add a note |
-| `notes` | `list()` | Return all notes |
+| `notes` | `list(workspaceId)` | Return notes scoped to the given workspace |
 | `notes` | `remove(id)` | Delete a note by ID |
-| `people` | `add(name)` | Add a person (TOCTOU-safe transaction) |
-| `people` | `list()` | Return all people |
+| `people` | `add(workspaceId, name)` | Add a person to a workspace |
+| `people` | `list(workspaceId)` | Return people in the given workspace |
 | `people` | `remove(id)` | Delete a person and cascade-delete their notes |
-| `export` | `run({ from?, to? })` | Build export payload, optionally filtered by date |
+| `export` | `run({ workspaceId, from?, to? })` | Build export payload for the given workspace, optionally filtered by date |
 | `export` | `saveFile(json, filename)` | Open save dialog and write JSON to disk |
 | `import` | `openFile()` | Open file picker, return `{ content, name }` or `null` |
-| `import` | `run(payload)` | Import notes from parsed payload, returns counts |
-| `data` | `reset()` | Delete all notes and people |
+| `import` | `run(payload, workspaceId)` | Import notes into the given workspace, returns counts |
+| `data` | `reset(workspaceId?)` | Delete all notes and people in the given workspace |
 | `ai.settings` | `get()` | Return AI settings (enabled, apiKey, model, purposes) |
 | `ai.settings` | `set(patch)` | Update one or more AI settings fields |
 | `ai.purposes` | `add(payload)` | Create a purpose preset |
@@ -173,10 +181,26 @@ The importer accepts both v1 files (with `people[]`) and legacy notes-only files
 ## Database schema
 
 ```sql
-CREATE TABLE people (
+CREATE TABLE workspaces (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
   created_at TEXT NOT NULL
+);
+
+CREATE TABLE people (
+  id           TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name         TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  UNIQUE(workspace_id, name)
+);
+
+CREATE TABLE notes (
+  id         TEXT PRIMARY KEY,
+  person_id  TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  sentiment  TEXT NOT NULL CHECK(sentiment IN ('positive','neutral','negative')),
+  note       TEXT NOT NULL,
+  timestamp  TEXT NOT NULL
 );
 
 CREATE TABLE ai_settings (
@@ -190,14 +214,6 @@ CREATE TABLE ai_purposes (
   name          TEXT NOT NULL,
   system_prompt TEXT NOT NULL,
   sort_order    INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE notes (
-  id         TEXT PRIMARY KEY,
-  person_id  TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
-  sentiment  TEXT NOT NULL CHECK(sentiment IN ('positive','neutral','negative')),
-  note       TEXT NOT NULL,
-  timestamp  TEXT NOT NULL
 );
 ```
 

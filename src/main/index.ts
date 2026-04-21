@@ -7,6 +7,7 @@ import { registerExportHandlers } from './ipc/export'
 import { registerImportHandlers } from './ipc/import'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerAiHandlers } from './ipc/ai'
+import { registerWorkspaceHandlers } from './ipc/workspaces'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
 
@@ -63,6 +64,7 @@ app.whenReady().then(() => {
   registerImportHandlers()
   registerSettingsHandlers()
   registerAiHandlers()
+  registerWorkspaceHandlers()
 
   createMainWindow()
   createTray()

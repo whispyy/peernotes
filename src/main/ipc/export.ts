@@ -1,25 +1,30 @@
 import { ipcMain, dialog } from 'electron'
 import * as fs from 'fs'
 import { getDb } from '../store/db'
-import { SELECT_NOTE } from './notes'
-import { SELECT_PERSON } from './people'
 import type { Person, Note, ExportNote, ExportResult } from '@shared/types'
 
 interface ExportPayload {
+  workspaceId: string
   from?: string
   to?: string
 }
 
 export function registerExportHandlers(): void {
-  ipcMain.handle('notes:export', (_e, { from, to }: ExportPayload): ExportResult => {
+  ipcMain.handle('notes:export', (_e, { workspaceId, from, to }: ExportPayload): ExportResult => {
     if (from && isNaN(Date.parse(from))) throw new Error('Invalid from date')
     if (to && isNaN(Date.parse(to))) throw new Error('Invalid to date')
 
     const db = getDb()
 
     let notes = db
-      .prepare(`${SELECT_NOTE} ORDER BY timestamp ASC`)
-      .all() as Note[]
+      .prepare(`
+        SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
+        FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ?
+        ORDER BY n.timestamp ASC
+      `)
+      .all(workspaceId) as Note[]
 
     if (from) {
       const fromDate = new Date(from + 'T00:00:00')
@@ -30,7 +35,9 @@ export function registerExportHandlers(): void {
       notes = notes.filter((n) => new Date(n.timestamp) <= toDate)
     }
 
-    const people = db.prepare(`${SELECT_PERSON}`).all() as Person[]
+    const people = db
+      .prepare('SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt FROM people WHERE workspace_id = ?')
+      .all(workspaceId) as Person[]
     const peopleById = Object.fromEntries(people.map((p) => [p.id, p]))
 
     const exportNotes: ExportNote[] = notes.map((n) => ({

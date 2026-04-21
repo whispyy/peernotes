@@ -6,8 +6,15 @@ export const SENTIMENT_LABELS: Record<Sentiment, string> = {
   negative: '– Negative'
 }
 
+export interface Workspace {
+  id: string
+  name: string
+  createdAt: string
+}
+
 export interface Person {
   id: string
+  workspaceId: string
   name: string
   createdAt: string
 }

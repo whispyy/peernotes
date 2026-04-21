@@ -241,7 +241,19 @@ nav {
 .tl-yellow { background: #FFBD2E; }
 .tl-green  { background: #28C840; }
 
-.mockup-tabs { display: flex; gap: 4px; margin-left: 8px; }
+.mockup-workspace-pill {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text);
+  background: #2C2C2E;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mockup-tabs { display: flex; gap: 4px; margin-left: 4px; }
 .mockup-tab {
   padding: 4px 12px;
   border-radius: 6px;
@@ -432,7 +444,7 @@ nav {
   font-size: 0.7rem;
   color: rgba(235,235,245,0.7);
   line-height: 1.5;
-  height: 52px;
+  height: 72px;
 }
 
 .qe-footer { display: flex; justify-content: flex-end; }

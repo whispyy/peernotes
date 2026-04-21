@@ -1,28 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
-    reset: (): Promise<void> => ipcRenderer.invoke('settings:reset')
+    reset: (workspaceId: string): Promise<void> => ipcRenderer.invoke('settings:reset', workspaceId)
   },
   export: {
-    run: (payload: { from?: string; to?: string }) => ipcRenderer.invoke('notes:export', payload),
+    run: (payload: { workspaceId: string; from?: string; to?: string }) =>
+      ipcRenderer.invoke('notes:export', payload),
     saveFile: (content: string, filename: string) =>
       ipcRenderer.invoke('export:saveFile', { content, filename })
   },
   import: {
     openFile: (): Promise<{ content: string; name: string } | null> =>
       ipcRenderer.invoke('import:openFile'),
-    run: (payload: ImportPayload): Promise<ImportResult> => ipcRenderer.invoke('notes:import', payload)
+    run: (payload: ImportPayload, workspaceId: string): Promise<ImportResult> =>
+      ipcRenderer.invoke('notes:import', payload, workspaceId)
   },
   people: {
-    list: (): Promise<Person[]> => ipcRenderer.invoke('people:list'),
-    add: (name: string): Promise<Person> => ipcRenderer.invoke('people:add', name),
+    list: (workspaceId: string): Promise<Person[]> => ipcRenderer.invoke('people:list', workspaceId),
+    add: (workspaceId: string, name: string): Promise<Person> =>
+      ipcRenderer.invoke('people:add', workspaceId, name),
     rename: (id: string, name: string): Promise<void> => ipcRenderer.invoke('people:rename', id, name),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('people:remove', id)
   },
   notes: {
-    list: (): Promise<Note[]> => ipcRenderer.invoke('notes:list'),
+    list: (workspaceId: string): Promise<Note[]> => ipcRenderer.invoke('notes:list', workspaceId),
     add: (payload: { personId: string; sentiment: Sentiment; note: string }): Promise<Note> =>
       ipcRenderer.invoke('notes:add', payload),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('notes:remove', id),
@@ -30,6 +33,14 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('notes:updated', cb)
       return () => ipcRenderer.removeListener('notes:updated', cb)
     }
+  },
+  workspace: {
+    list: (): Promise<Workspace[]> => ipcRenderer.invoke('workspace:list'),
+    add: (name: string): Promise<Workspace> => ipcRenderer.invoke('workspace:add', name),
+    rename: (id: string, name: string): Promise<void> => ipcRenderer.invoke('workspace:rename', id, name),
+    remove: (id: string): Promise<void> => ipcRenderer.invoke('workspace:remove', id),
+    getActive: (): Promise<string | null> => ipcRenderer.invoke('workspace:getActive'),
+    setActive: (id: string): Promise<void> => ipcRenderer.invoke('workspace:setActive', id),
   },
   ai: {
     settings: {

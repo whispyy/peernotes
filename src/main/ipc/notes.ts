@@ -26,28 +26,31 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('notes:count', (_e, workspaceId: string, from?: string, to?: string): number => {
     const db = getDb()
-    if (from && to) {
+    // Use local-time boundaries (same as notes:export) so count preview matches actual export.
+    const fromIso = from ? new Date(from + 'T00:00:00').toISOString() : undefined
+    const toIso   = to   ? new Date(to   + 'T23:59:59.999').toISOString() : undefined
+    if (fromIso && toIso) {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
         WHERE p.workspace_id = ? AND n.timestamp >= ? AND n.timestamp <= ?
-      `).get(workspaceId, from + 'T00:00:00.000Z', to + 'T23:59:59.999Z') as { total: number }
+      `).get(workspaceId, fromIso, toIso) as { total: number }
       return row.total
     }
-    if (from) {
+    if (fromIso) {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
         WHERE p.workspace_id = ? AND n.timestamp >= ?
-      `).get(workspaceId, from + 'T00:00:00.000Z') as { total: number }
+      `).get(workspaceId, fromIso) as { total: number }
       return row.total
     }
-    if (to) {
+    if (toIso) {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
         WHERE p.workspace_id = ? AND n.timestamp <= ?
-      `).get(workspaceId, to + 'T23:59:59.999Z') as { total: number }
+      `).get(workspaceId, toIso) as { total: number }
       return row.total
     }
     const row = db.prepare(`
@@ -69,6 +72,32 @@ export function registerNotesHandlers(): void {
       `)
       .all(workspaceId) as Array<{ personId: string; total: number }>
     return Object.fromEntries(rows.map((r) => [r.personId, r.total]))
+  })
+
+  ipcMain.handle('notes:search', (_e, workspaceId: string, query: string): Note[] => {
+    const like = `%${query}%`
+    return getDb()
+      .prepare(`
+        SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
+        FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ? AND (n.note LIKE ? OR p.name LIKE ?)
+        ORDER BY n.timestamp DESC
+      `)
+      .all(workspaceId, like, like) as Note[]
+  })
+
+  ipcMain.handle('notes:list-for-person-in-range', (_e, personId: string, from: string, to: string): Note[] => {
+    const fromIso = new Date(from + 'T00:00:00').toISOString()
+    const toIso   = new Date(to   + 'T23:59:59.999').toISOString()
+    return getDb()
+      .prepare(`
+        SELECT id, person_id AS personId, sentiment, note, timestamp
+        FROM notes
+        WHERE person_id = ? AND timestamp >= ? AND timestamp <= ?
+        ORDER BY timestamp DESC
+      `)
+      .all(personId, fromIso, toIso) as Note[]
   })
 
   ipcMain.handle('notes:list-for-person', (_e, personId: string, offset = 0, limit = 100): Note[] => {

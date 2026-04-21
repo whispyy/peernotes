@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import { usePeople } from './hooks/usePeople'
 import { useNotes } from './hooks/useNotes'
@@ -178,14 +178,20 @@ export function App({ mode, setThemeMode }: Props) {
   const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
   const { notes, hasMore, loadMore, countByPerson, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
 
-  const filteredNotes = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return notes
-    return notes.filter((n) => {
-      const person = peopleById[n.personId]
-      return n.note.toLowerCase().includes(q) || person?.name.toLowerCase().includes(q)
-    })
-  }, [notes, searchQuery, peopleById])
+  const [searchResults, setSearchResults] = useState<typeof notes>([])
+  const isSearching = searchQuery.trim().length > 0
+
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q || !workspaceId) { setSearchResults([]); return }
+    const timer = setTimeout(async () => {
+      const results = await window.api.notes.search(workspaceId, q)
+      setSearchResults(results)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [searchQuery, workspaceId])
+
+  const filteredNotes = isSearching ? searchResults : notes
 
   const handleSearchKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -253,7 +259,7 @@ export function App({ mode, setThemeMode }: Props) {
               peopleById={peopleById}
               onDelete={removeNote}
               searchQuery={searchQuery}
-              hasMore={hasMore && !searchQuery}
+              hasMore={hasMore && !isSearching}
               onLoadMore={loadMore}
             />
           )}
@@ -299,7 +305,7 @@ export function App({ mode, setThemeMode }: Props) {
         <ImportModal
           workspaceId={workspaceId}
           onClose={() => setImportOpen(false)}
-          onImported={refreshPeople}
+          onImported={() => { refreshPeople(); refreshNotes() }}
         />
       )}
     </>

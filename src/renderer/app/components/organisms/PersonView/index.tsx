@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import styled from 'styled-components'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
 import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
 import { MonthGroup } from '../../molecules/MonthGroup'
+import { LoadMore } from '../../molecules/LoadMore'
 import { groupByMonth } from '../../../utils/groupByMonth'
 import { useAiSettings } from '../../../hooks/useAiSettings'
 
@@ -14,7 +15,7 @@ interface Props {
   workspaceId: string | null
   countByPerson: Record<string, number>
   peopleById: Record<string, Person>
-  onDelete: (id: string) => void
+  onDelete: (id: string) => Promise<void>
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
 }
 
@@ -88,29 +89,6 @@ const Empty = styled.div`
   font-size: ${({ theme }) => theme.typography.size.base};
 `
 
-const LoadMoreRow = styled.div`
-  display: flex;
-  justify-content: center;
-  padding: ${({ theme }) => theme.spacing['2']} 0;
-`
-
-const LoadMoreBtn = styled.button`
-  padding: ${({ theme }) => theme.spacing['1.5']} ${({ theme }) => theme.spacing['4']};
-  border-radius: ${({ theme }) => theme.radius.md};
-  border: 1px solid ${({ theme }) => theme.colors.border.default};
-  background: ${({ theme }) => theme.colors.bg.secondary};
-  color: ${({ theme }) => theme.colors.text.muted};
-  font-family: ${({ theme }) => theme.typography.fontFamily};
-  font-size: ${({ theme }) => theme.typography.size.sm};
-  cursor: pointer;
-  transition: all 0.1s ease;
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.bg.tertiary};
-    color: ${({ theme }) => theme.colors.text.primary};
-  }
-  &:disabled { opacity: 0.5; cursor: default; }
-`
 
 // ─── Summarize panel ─────────────────────────────────────────────────────────
 
@@ -261,6 +239,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   const [personTotal, setPersonTotal] = useState(0)
   const [personLoading, setPersonLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const personDbOffsetRef = useRef(0)
 
   // Summarize panel state
   const [panelOpen, setPanelOpen] = useState(false)
@@ -295,25 +274,45 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     if (!selectedId) {
       setPersonNotes([])
       setPersonTotal(0)
+      setPersonLoading(false)
+      personDbOffsetRef.current = 0
       return
     }
     let cancelled = false
     setPersonLoading(true)
     setPersonNotes([])
+    personDbOffsetRef.current = 0
     window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
-      if (cancelled) return
+      if (cancelled) {
+        setPersonLoading(false)
+        return
+      }
       setPersonNotes(list)
+      personDbOffsetRef.current = list.length
       setPersonLoading(false)
     })
-    // Get total count for this person
-    const total = countByPerson[selectedId] ?? 0
-    setPersonTotal(total)
-    // Reset panel
     setPanelOpen(false)
     setSummary(null)
     setGenError(null)
     return () => { cancelled = true }
   }, [selectedId, workspaceId])
+
+  // Re-fetch first page for selected person whenever an external change lands
+  // (note added via global button or quick-entry, or deleted from another view)
+  useEffect(() => {
+    if (!selectedId) return
+    return window.api.notes.onUpdated(() => {
+      window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
+        setPersonNotes(list)
+        personDbOffsetRef.current = list.length
+      })
+    })
+  }, [selectedId])
+
+  // Keep personTotal in sync whenever countByPerson updates (e.g. after onUpdated refresh)
+  useEffect(() => {
+    if (selectedId) setPersonTotal(countByPerson[selectedId] ?? 0)
+  }, [selectedId, countByPerson])
 
   // Auto-select first purpose when presets load
   useEffect(() => {
@@ -327,15 +326,15 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   const handleLoadMore = useCallback(async () => {
     if (!selectedId || loadingMore) return
     setLoadingMore(true)
-    const nextPage = await window.api.notes.listForPerson(selectedId, personNotes.length, PAGE_SIZE)
+    const nextPage = await window.api.notes.listForPerson(selectedId, personDbOffsetRef.current, PAGE_SIZE)
     setPersonNotes((prev) => [...prev, ...nextPage])
+    personDbOffsetRef.current += nextPage.length
     setLoadingMore(false)
-  }, [selectedId, personNotes.length, loadingMore])
+  }, [selectedId, loadingMore])
 
-  const handleDelete = useCallback((id: string) => {
-    onDelete(id)
+  const handleDelete = useCallback(async (id: string) => {
+    await onDelete(id)
     setPersonNotes((prev) => prev.filter((n) => n.id !== id))
-    setPersonTotal((t) => Math.max(0, t - 1))
   }, [onDelete])
 
   const handleAddNote = useCallback(
@@ -343,7 +342,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
       const newNote = await onAddNote(payload)
       if (payload.personId === selectedId) {
         setPersonNotes((prev) => [newNote, ...prev])
-        setPersonTotal((t) => t + 1)
       }
       return newNote
     },
@@ -371,18 +369,16 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
       return
     }
 
-    const rangeNotes = personNotes.filter((n) => {
-      const t = n.timestamp.slice(0, 10)
-      return t >= from && t <= to
-    })
-
-    if (rangeNotes.length === 0) {
-      setGenError('No notes found in this date range.')
-      return
-    }
-
     setGenerating(true)
     try {
+      const rangeNotes = await window.api.notes.listForPersonInRange(selectedId, from, to)
+
+      if (rangeNotes.length === 0) {
+        setGenError('No notes found in this date range.')
+        setGenerating(false)
+        return
+      }
+
       const result = await window.api.ai.summarize({
         personName: selectedPerson.name,
         notes: rangeNotes.map((n) => ({ sentiment: n.sentiment, note: n.note, timestamp: n.timestamp })),
@@ -490,11 +486,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
               />
             ))}
             {personHasMore && (
-              <LoadMoreRow>
-                <LoadMoreBtn onClick={handleLoadMore} disabled={loadingMore}>
-                  {loadingMore ? 'Loading…' : 'Load more'}
-                </LoadMoreBtn>
-              </LoadMoreRow>
+              <LoadMore loading={loadingMore} onClick={handleLoadMore} compact />
             )}
           </div>
         )}

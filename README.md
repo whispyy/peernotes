@@ -117,7 +117,11 @@ Releases are built automatically by GitHub Actions when you push a version tag. 
 
 That's it. The [`release` workflow](.github/workflows/release.yml) triggers on the new tag, builds both DMGs in parallel, and publishes them to the [Releases page](https://github.com/whispyy/peernotes/releases).
 
-> **Note on Gatekeeper** — the DMGs are unsigned (no Apple Developer certificate). On first launch, right-click the app → Open, then confirm. After that it opens normally.
+> **Note on Gatekeeper** — the DMGs are unsigned (no Apple Developer certificate). macOS Ventura and later may show "Peernotes is damaged and can't be opened" instead of the usual unverified-developer prompt. Fix: open **System Settings → Privacy & Security** and click **Open Anyway**, or run this once in Terminal:
+> ```bash
+> xattr -cr /Applications/Peernotes.app
+> ```
+> After that it opens normally.
 
 ## IPC API
 

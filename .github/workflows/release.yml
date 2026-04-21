@@ -33,10 +33,14 @@ jobs:
         run: npm run icons
 
       - name: Package arm64
-        run: npx electron-builder --mac --arm64 --publish never
+        run: |
+          npx electron-rebuild -f -a arm64 -w better-sqlite3
+          npx electron-builder --mac --arm64 --publish never
 
       - name: Package x64
-        run: npx electron-builder --mac --x64 --publish never
+        run: |
+          npx electron-rebuild -f -a x64 -w better-sqlite3
+          npx electron-builder --mac --x64 --publish never
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2

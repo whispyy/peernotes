@@ -176,12 +176,7 @@ export function App({ mode, setThemeMode }: Props) {
   const workspaceId = activeWorkspace?.id ?? null
 
   const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
-  const { notes, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
-
-  const noteCountById = useMemo(
-    () => Object.fromEntries(people.map((p) => [p.id, notes.filter((n) => n.personId === p.id).length])),
-    [people, notes]
-  )
+  const { notes, hasMore, loadMore, countByPerson, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
 
   const filteredNotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -253,12 +248,20 @@ export function App({ mode, setThemeMode }: Props) {
 
         <Content>
           {activeTab === 'timeline' && (
-            <Timeline notes={filteredNotes} peopleById={peopleById} onDelete={removeNote} searchQuery={searchQuery} />
+            <Timeline
+              notes={filteredNotes}
+              peopleById={peopleById}
+              onDelete={removeNote}
+              searchQuery={searchQuery}
+              hasMore={hasMore && !searchQuery}
+              onLoadMore={loadMore}
+            />
           )}
           {activeTab === 'person' && (
             <PersonView
               people={people}
-              notes={filteredNotes}
+              workspaceId={workspaceId}
+              countByPerson={countByPerson}
               peopleById={peopleById}
               onDelete={removeNote}
               onAddNote={addNote}
@@ -267,7 +270,7 @@ export function App({ mode, setThemeMode }: Props) {
           {activeTab === 'people' && (
             <PeopleManager
               people={people}
-              noteCountById={noteCountById}
+              noteCountById={countByPerson}
               onAdd={addPerson}
               onRename={renamePerson}
               onRemove={removePerson}
@@ -290,7 +293,7 @@ export function App({ mode, setThemeMode }: Props) {
         <AddNoteModal people={people} onClose={() => setAddNoteOpen(false)} />
       )}
       {exportOpen && workspaceId && (
-        <ExportModal notes={notes} workspaceId={workspaceId} onClose={() => setExportOpen(false)} />
+        <ExportModal workspaceId={workspaceId} onClose={() => setExportOpen(false)} />
       )}
       {importOpen && workspaceId && (
         <ImportModal

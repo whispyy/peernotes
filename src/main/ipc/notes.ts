@@ -11,7 +11,7 @@ export const SELECT_NOTE = `
 `
 
 export function registerNotesHandlers(): void {
-  ipcMain.handle('notes:list', (_e, workspaceId: string): Note[] => {
+  ipcMain.handle('notes:list', (_e, workspaceId: string, offset = 0, limit = 100): Note[] => {
     return getDb()
       .prepare(`
         SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
@@ -19,8 +19,68 @@ export function registerNotesHandlers(): void {
         INNER JOIN people p ON p.id = n.person_id
         WHERE p.workspace_id = ?
         ORDER BY n.timestamp DESC
+        LIMIT ? OFFSET ?
       `)
-      .all(workspaceId) as Note[]
+      .all(workspaceId, limit, offset) as Note[]
+  })
+
+  ipcMain.handle('notes:count', (_e, workspaceId: string, from?: string, to?: string): number => {
+    const db = getDb()
+    if (from && to) {
+      const row = db.prepare(`
+        SELECT COUNT(*) AS total FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ? AND n.timestamp >= ? AND n.timestamp <= ?
+      `).get(workspaceId, from + 'T00:00:00.000Z', to + 'T23:59:59.999Z') as { total: number }
+      return row.total
+    }
+    if (from) {
+      const row = db.prepare(`
+        SELECT COUNT(*) AS total FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ? AND n.timestamp >= ?
+      `).get(workspaceId, from + 'T00:00:00.000Z') as { total: number }
+      return row.total
+    }
+    if (to) {
+      const row = db.prepare(`
+        SELECT COUNT(*) AS total FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ? AND n.timestamp <= ?
+      `).get(workspaceId, to + 'T23:59:59.999Z') as { total: number }
+      return row.total
+    }
+    const row = db.prepare(`
+      SELECT COUNT(*) AS total FROM notes n
+      INNER JOIN people p ON p.id = n.person_id
+      WHERE p.workspace_id = ?
+    `).get(workspaceId) as { total: number }
+    return row.total
+  })
+
+  ipcMain.handle('notes:count-by-person', (_e, workspaceId: string): Record<string, number> => {
+    const rows = getDb()
+      .prepare(`
+        SELECT n.person_id AS personId, COUNT(*) AS total
+        FROM notes n
+        INNER JOIN people p ON p.id = n.person_id
+        WHERE p.workspace_id = ?
+        GROUP BY n.person_id
+      `)
+      .all(workspaceId) as Array<{ personId: string; total: number }>
+    return Object.fromEntries(rows.map((r) => [r.personId, r.total]))
+  })
+
+  ipcMain.handle('notes:list-for-person', (_e, personId: string, offset = 0, limit = 100): Note[] => {
+    return getDb()
+      .prepare(`
+        SELECT id, person_id AS personId, sentiment, note, timestamp
+        FROM notes
+        WHERE person_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ? OFFSET ?
+      `)
+      .all(personId, limit, offset) as Note[]
   })
 
   ipcMain.handle(

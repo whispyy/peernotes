@@ -21,7 +21,10 @@ declare global {
         remove: (id: string) => Promise<void>
       }
       notes: {
-        list: (workspaceId: string) => Promise<Note[]>
+        list: (workspaceId: string, offset?: number, limit?: number) => Promise<Note[]>
+        count: (workspaceId: string, from?: string, to?: string) => Promise<number>
+        countByPerson: (workspaceId: string) => Promise<Record<string, number>>
+        listForPerson: (personId: string, offset?: number, limit?: number) => Promise<Note[]>
         add: (payload: { personId: string; sentiment: Sentiment; note: string }) => Promise<Note>
         remove: (id: string) => Promise<void>
         onUpdated: (cb: () => void) => (() => void)

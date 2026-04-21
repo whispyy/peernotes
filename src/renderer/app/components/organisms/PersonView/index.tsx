@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
 import { Avatar } from '../../atoms/Avatar'
@@ -7,9 +7,12 @@ import { MonthGroup } from '../../molecules/MonthGroup'
 import { groupByMonth } from '../../../utils/groupByMonth'
 import { useAiSettings } from '../../../hooks/useAiSettings'
 
+const PAGE_SIZE = 100
+
 interface Props {
   people: Person[]
-  notes: Note[]
+  workspaceId: string | null
+  countByPerson: Record<string, number>
   peopleById: Record<string, Person>
   onDelete: (id: string) => void
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
@@ -83,6 +86,30 @@ const Empty = styled.div`
   height: 200px;
   color: ${({ theme }) => theme.colors.text.muted};
   font-size: ${({ theme }) => theme.typography.size.base};
+`
+
+const LoadMoreRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: ${({ theme }) => theme.spacing['2']} 0;
+`
+
+const LoadMoreBtn = styled.button`
+  padding: ${({ theme }) => theme.spacing['1.5']} ${({ theme }) => theme.spacing['4']};
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  background: ${({ theme }) => theme.colors.bg.secondary};
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  cursor: pointer;
+  transition: all 0.1s ease;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.bg.tertiary};
+    color: ${({ theme }) => theme.colors.text.primary};
+  }
+  &:disabled { opacity: 0.5; cursor: default; }
 `
 
 // ─── Summarize panel ─────────────────────────────────────────────────────────
@@ -225,9 +252,15 @@ function formatDateLabel(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: Props) {
+export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { aiSettings } = useAiSettings()
+
+  // Per-person paginated notes
+  const [personNotes, setPersonNotes] = useState<Note[]>([])
+  const [personTotal, setPersonTotal] = useState(0)
+  const [personLoading, setPersonLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // Summarize panel state
   const [panelOpen, setPanelOpen] = useState(false)
@@ -257,12 +290,30 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
     }
   }, [people, selectedId])
 
-  // Reset panel when switching person
+  // Fetch notes for selected person
   useEffect(() => {
+    if (!selectedId) {
+      setPersonNotes([])
+      setPersonTotal(0)
+      return
+    }
+    let cancelled = false
+    setPersonLoading(true)
+    setPersonNotes([])
+    window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
+      if (cancelled) return
+      setPersonNotes(list)
+      setPersonLoading(false)
+    })
+    // Get total count for this person
+    const total = countByPerson[selectedId] ?? 0
+    setPersonTotal(total)
+    // Reset panel
     setPanelOpen(false)
     setSummary(null)
     setGenError(null)
-  }, [selectedId])
+    return () => { cancelled = true }
+  }, [selectedId, workspaceId])
 
   // Auto-select first purpose when presets load
   useEffect(() => {
@@ -271,17 +322,36 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
     }
   }, [aiSettings.purposes, purposeId])
 
-  const noteCountByPerson = useMemo(
-    () => Object.fromEntries(
-      people.map((p) => [p.id, notes.filter((n) => n.personId === p.id).length])
-    ),
-    [people, notes]
+  const personHasMore = personNotes.length < personTotal
+
+  const handleLoadMore = useCallback(async () => {
+    if (!selectedId || loadingMore) return
+    setLoadingMore(true)
+    const nextPage = await window.api.notes.listForPerson(selectedId, personNotes.length, PAGE_SIZE)
+    setPersonNotes((prev) => [...prev, ...nextPage])
+    setLoadingMore(false)
+  }, [selectedId, personNotes.length, loadingMore])
+
+  const handleDelete = useCallback((id: string) => {
+    onDelete(id)
+    setPersonNotes((prev) => prev.filter((n) => n.id !== id))
+    setPersonTotal((t) => Math.max(0, t - 1))
+  }, [onDelete])
+
+  const handleAddNote = useCallback(
+    async (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => {
+      const newNote = await onAddNote(payload)
+      if (payload.personId === selectedId) {
+        setPersonNotes((prev) => [newNote, ...prev])
+        setPersonTotal((t) => t + 1)
+      }
+      return newNote
+    },
+    [onAddNote, selectedId]
   )
 
-  const personNotes = notes.filter((n) => n.personId === selectedId)
-  const groups = groupByMonth(personNotes)
-
   const selectedPerson = people.find((p) => p.id === selectedId)
+  const groups = groupByMonth(personNotes)
 
   const handleGenerate = async () => {
     if (!selectedId || !selectedPerson) return
@@ -335,7 +405,7 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
     if (!summary || !selectedId) return
     setSaving(true)
     const noteText = `[AI Summary: ${summary.dateLabel}]\n\n${summary.text}`
-    await onAddNote({ personId: selectedId, sentiment: 'neutral', note: noteText })
+    await handleAddNote({ personId: selectedId, sentiment: 'neutral', note: noteText })
     setSummary(null)
     setSaving(false)
   }
@@ -347,7 +417,7 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
           <PersonRow key={p.id} $active={p.id === selectedId} onClick={() => setSelectedId(p.id)}>
             <Avatar name={p.name} size={28} />
             <PersonName>{p.name}</PersonName>
-            <NoteCount>{noteCountByPerson[p.id] ?? 0}</NoteCount>
+            <NoteCount>{countByPerson[p.id] ?? 0}</NoteCount>
           </PersonRow>
         ))}
       </Sidebar>
@@ -403,7 +473,9 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
           </SummaryBanner>
         )}
 
-        {personNotes.length === 0 ? (
+        {personLoading ? (
+          <Empty>Loading…</Empty>
+        ) : personNotes.length === 0 ? (
           <Empty>No notes for this person yet.</Empty>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -414,9 +486,16 @@ export function PersonView({ people, notes, peopleById, onDelete, onAddNote }: P
                 notes={g.notes}
                 peopleById={peopleById}
                 showPerson={false}
-                onDelete={onDelete}
+                onDelete={handleDelete}
               />
             ))}
+            {personHasMore && (
+              <LoadMoreRow>
+                <LoadMoreBtn onClick={handleLoadMore} disabled={loadingMore}>
+                  {loadingMore ? 'Loading…' : 'Load more'}
+                </LoadMoreBtn>
+              </LoadMoreRow>
+            )}
           </div>
         )}
       </Feed>

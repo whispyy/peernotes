@@ -1,6 +1,6 @@
 {
   "name": "peernotes",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Quick team member notes for assessing mood and reviews",
   "main": "out/main/index.js",
   "scripts": {
@@ -46,7 +46,10 @@
       "out/**/*"
     ],
     "extraResources": [
-      { "from": "resources", "to": "." }
+      {
+        "from": "resources",
+        "to": "."
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",

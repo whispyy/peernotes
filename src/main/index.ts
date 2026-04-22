@@ -8,6 +8,7 @@ import { registerImportHandlers } from './ipc/import'
 import { registerSettingsHandlers } from './ipc/settings'
 import { registerAiHandlers } from './ipc/ai'
 import { registerWorkspaceHandlers } from './ipc/workspaces'
+import { registerSyncHandlers, cleanupSync } from './ipc/sync'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
 
@@ -65,6 +66,7 @@ app.whenReady().then(() => {
   registerSettingsHandlers()
   registerAiHandlers()
   registerWorkspaceHandlers()
+  registerSyncHandlers()
 
   createMainWindow()
   createTray()
@@ -86,5 +88,6 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  cleanupSync()
   closeDb()
 })

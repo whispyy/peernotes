@@ -118,4 +118,32 @@ function migrate(db: Database.Database): void {
     db.pragma('foreign_keys = ON')
     db.pragma('user_version = 3')
   }
+
+  if (version < 4) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS sync_settings (
+          id                        INTEGER PRIMARY KEY CHECK (id = 1),
+          github_token              TEXT,
+          repo                      TEXT,
+          branch                    TEXT NOT NULL DEFAULT 'main',
+          file_path                 TEXT NOT NULL DEFAULT 'peernotes',
+          last_synced_at            INTEGER,
+          last_sync_error           TEXT,
+          auto_sync_enabled         INTEGER NOT NULL DEFAULT 0,
+          auto_sync_interval_minutes INTEGER NOT NULL DEFAULT 15,
+          auto_sync_direction       TEXT NOT NULL DEFAULT 'both'
+        );
+        INSERT OR IGNORE INTO sync_settings (id) VALUES (1);
+      `)
+    })()
+    db.pragma('user_version = 4')
+  }
+
+  if (version < 5) {
+    db.transaction(() => {
+      db.exec(`UPDATE sync_settings SET file_path = 'peernotes' WHERE file_path = 'peernotes/backup.json'`)
+    })()
+    db.pragma('user_version = 5')
+  }
 }

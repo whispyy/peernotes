@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings } from '@shared/types'
 
 declare global {
   interface Window {
@@ -38,6 +38,13 @@ declare global {
         remove: (id: string) => Promise<void>
         getActive: () => Promise<string | null>
         setActive: (id: string) => Promise<void>
+      }
+      sync: {
+        getSettings: () => Promise<SyncSettings>
+        setSettings: (patch: Partial<SyncSettings>) => Promise<void>
+        push: (workspaceId: string) => Promise<{ total: number }>
+        pull: (workspaceId: string) => Promise<{ imported: number; skipped: number }>
+        onUpdated: (cb: () => void) => (() => void)
       }
       ai: {
         settings: {

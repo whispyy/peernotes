@@ -95,6 +95,10 @@ export function notifyMainWindow(): void {
   mainWindow?.webContents.send('notes:updated')
 }
 
+export function notifySyncUpdated(): void {
+  mainWindow?.webContents.send('sync:updated')
+}
+
 export function toggleQuickEntry(): void {
   if (!quickEntryWindow || quickEntryWindow.isDestroyed()) {
     createQuickEntryWindow()

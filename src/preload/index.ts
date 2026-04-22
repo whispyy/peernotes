@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -52,6 +52,19 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id: string): Promise<void> => ipcRenderer.invoke('workspace:remove', id),
     getActive: (): Promise<string | null> => ipcRenderer.invoke('workspace:getActive'),
     setActive: (id: string): Promise<void> => ipcRenderer.invoke('workspace:setActive', id),
+  },
+  sync: {
+    getSettings: (): Promise<SyncSettings> => ipcRenderer.invoke('sync:settings:get'),
+    setSettings: (patch: Partial<SyncSettings>): Promise<void> =>
+      ipcRenderer.invoke('sync:settings:set', patch),
+    push: (workspaceId: string): Promise<{ total: number }> =>
+      ipcRenderer.invoke('sync:push', workspaceId),
+    pull: (workspaceId: string): Promise<{ imported: number; skipped: number }> =>
+      ipcRenderer.invoke('sync:pull', workspaceId),
+    onUpdated: (cb: () => void): (() => void) => {
+      ipcRenderer.on('sync:updated', cb)
+      return () => ipcRenderer.removeListener('sync:updated', cb)
+    },
   },
   ai: {
     settings: {

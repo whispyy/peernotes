@@ -15,6 +15,7 @@ A private macOS app to log honest notes about your teammates. Capture moments as
 - **AI Summaries** — Generate smart summaries of a person's notes over any date range using a model of your choice via OpenRouter. Choose a purpose preset (review prep, retro prep, etc.) to shape how the summary is written. Results appear as a dismissible banner and can be saved as a neutral note.
 - **Settings** — Theme switcher (Auto / Light / Dark), AI summary configuration, and data management in a dedicated tab.
 - **Local-only** — All data stays on your machine in a SQLite database in `~/Library/Application Support/peernotes`.
+- **GitHub Sync** — Back up and restore the active workspace to a file in a GitHub repository. Supports manual push/pull and optional background auto-sync on a configurable interval (5 min → 24 h). Requires a GitHub Personal Access Token with `repo` (or `contents:write`) scope.
 
 ## Tech stack
 
@@ -32,17 +33,18 @@ A private macOS app to log honest notes about your teammates. Capture moments as
 src/
 ├── main/
 │   ├── index.ts          # App entry, IPC registration, lifecycle
-│   ├── windows.ts        # Main window + quick-entry overlay, notifyMainWindow()
+│   ├── windows.ts        # Main window + quick-entry overlay, notifyMainWindow(), notifySyncUpdated()
 │   ├── store/
-│   │   └── db.ts         # SQLite connection, WAL mode, migrations
+│   │   └── db.ts         # SQLite connection, WAL mode, migrations (v1–v4)
 │   └── ipc/
 │       ├── notes.ts      # notes:add, notes:list, notes:remove
 │       ├── people.ts     # people:add, people:list, people:remove
 │       ├── workspaces.ts # workspace:list/add/rename/remove/getActive/setActive
-│       ├── export.ts     # export:run, export:saveFile
-│       ├── import.ts     # import:openFile, notes:import
+│       ├── export.ts     # export:run, export:saveFile, buildExport()
+│       ├── import.ts     # import:openFile, notes:import, performImport()
 │       ├── settings.ts   # settings:reset
-│       └── ai.ts         # ai:settings:get/set, ai:purposes:*, ai:summarize
+│       ├── ai.ts         # ai:settings:get/set, ai:purposes:*, ai:summarize
+│       └── sync.ts       # sync:settings:get/set, sync:push, sync:pull, auto-sync timer
 ├── preload/
 │   └── index.ts          # contextBridge — exposes window.api
 ├── renderer/
@@ -57,7 +59,7 @@ src/
 │   │                     #   AddNoteModal, ExportModal, ImportModal, WorkspaceSelector
 │   └── quick-entry/      # Floating overlay window (global shortcut target)
 └── shared/
-    └── types.ts          # Shared TypeScript types and constants
+    └── types.ts          # Shared TypeScript types and constants (incl. SyncSettings)
 ```
 
 ## Getting started
@@ -152,6 +154,10 @@ All channels are registered via `ipcMain.handle` and exposed through `contextBri
 | `ai.purposes` | `update(payload)` | Update a purpose preset |
 | `ai.purposes` | `remove(id)` | Delete a purpose preset |
 | `ai` | `summarize(payload)` | Call OpenRouter and return a summary string |
+| `sync` | `getSettings()` | Return sync configuration |
+| `sync` | `setSettings(patch)` | Update one or more sync fields |
+| `sync` | `push(workspaceId)` | Export active workspace and push to GitHub |
+| `sync` | `pull(workspaceId)` | Fetch backup from GitHub and import into active workspace |
 
 ## Data format
 
@@ -181,6 +187,23 @@ All channels are registered via `ipcMain.handle` and exposed through `contextBri
 ```
 
 The importer accepts both v1 files (with `people[]`) and legacy notes-only files. Duplicate IDs are silently skipped via `INSERT OR IGNORE`.
+
+## GitHub Sync
+
+Notes are backed up as a single JSON file in a GitHub repository using the [Contents API](https://docs.github.com/en/rest/repos/contents). The file uses the same schema as a manual export (see [Export / import schema](#export--import-schema)).
+
+### Setup
+
+1. Generate a GitHub Personal Access Token with `repo` scope (classic) or a fine-grained token with **Contents: Read and Write** on the target repository.
+2. In Peernotes, open **Settings → GitHub Sync**.
+3. Fill in your token, repository (`owner/repo`), branch, and file path.
+4. Click **↑ Push** to create the initial backup, or **↓ Pull** to restore from an existing one.
+
+### Known limitations
+
+- **1 MB file size limit** — The GitHub Contents API cannot read or write files larger than 1 MB. A typical note is ~300–500 bytes of JSON; you would need roughly 2,000–3,000 notes in a single workspace to approach this limit. Options being considered for a future release: gzip compression (would push the effective limit to ~10,000+ notes) or splitting the backup into per-year files. For now, the app surfaces a clear error if a push or pull hits the limit.
+- **Last-write-wins** — If two machines push concurrently, the later push overwrites the earlier one. GitHub retains the full commit history, so older snapshots are always recoverable via the repository's commit log.
+- **Active workspace only** — Sync targets the currently selected workspace. To sync multiple workspaces, configure a different file path for each one.
 
 ## Database schema
 
@@ -218,6 +241,19 @@ CREATE TABLE ai_purposes (
   name          TEXT NOT NULL,
   system_prompt TEXT NOT NULL,
   sort_order    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE sync_settings (
+  id                         INTEGER PRIMARY KEY CHECK (id = 1),
+  github_token               TEXT,
+  repo                       TEXT,                          -- "owner/repo"
+  branch                     TEXT NOT NULL DEFAULT 'main',
+  file_path                  TEXT NOT NULL DEFAULT 'peernotes',
+  last_synced_at             INTEGER,                       -- Unix ms timestamp
+  last_sync_error            TEXT,
+  auto_sync_enabled          INTEGER NOT NULL DEFAULT 0,
+  auto_sync_interval_minutes INTEGER NOT NULL DEFAULT 15,
+  auto_sync_direction        TEXT NOT NULL DEFAULT 'both'   -- 'push' | 'pull' | 'both'
 );
 ```
 

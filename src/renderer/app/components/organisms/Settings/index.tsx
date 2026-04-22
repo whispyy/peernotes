@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
-import type { AiPurposePreset, AiSettings } from '@shared/types'
+import type { AiPurposePreset, AiSettings, SyncSettings, SyncDirection } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { Input } from '../../atoms/Input'
 import { TextArea } from '../../atoms/TextArea'
@@ -13,6 +13,7 @@ interface Props {
   onImport: () => void
   onReset: () => void
   workspaceId?: string | null
+  workspaceName?: string | null
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -227,6 +228,13 @@ const InputLabel = styled.span`
   color: ${({ theme }) => theme.colors.text.secondary};
 `
 
+const BackupPathPreview = styled.div`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.text.tertiary};
+  padding: 0 ${({ theme }) => theme.spacing['4']};
+  margin-top: -${({ theme }) => theme.spacing['2']};
+`
+
 // ─── Purpose presets ─────────────────────────────────────────────────────────
 
 const PurposeList = styled.div`
@@ -301,6 +309,48 @@ const AddPresetRow = styled.button`
   }
 `
 
+// ─── Sync status ─────────────────────────────────────────────────────────────
+
+const SyncStatusText = styled.span<{ $variant?: 'success' | 'error' }>`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ $variant, theme }) =>
+    $variant === 'success' ? theme.colors.sentiment.positive :
+    $variant === 'error' ? theme.colors.danger :
+    theme.colors.text.muted};
+`
+
+const SyncActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['2']};
+  margin-left: auto;
+`
+
+// ─── Sync constants ───────────────────────────────────────────────────────────
+
+const INTERVAL_OPTIONS = [
+  { value: 5, label: '5 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 1440, label: '24 hours' },
+]
+
+const DIRECTION_OPTIONS: { value: SyncDirection; label: string }[] = [
+  { value: 'push', label: 'Push only' },
+  { value: 'pull', label: 'Pull only' },
+  { value: 'both', label: 'Both' },
+]
+
+function formatLastSynced(ts: number | null): string {
+  if (!ts) return 'Never'
+  const diff = Math.floor((Date.now() - ts) / 1000)
+  if (diff < 60) return 'Just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return new Date(ts).toLocaleDateString()
+}
+
 // ─── Theme options ────────────────────────────────────────────────────────────
 
 const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
@@ -356,7 +406,7 @@ function PurposeEditor({ initial, onSave, onCancel }: PurposeEditorProps) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function Settings({ mode, setThemeMode, onExport, onImport, onReset, workspaceId }: Props) {
+export function Settings({ mode, setThemeMode, onExport, onImport, onReset, workspaceId, workspaceName }: Props) {
   const [resetState, setResetState] = useState<ResetState>('idle')
 
   // AI settings state
@@ -365,8 +415,34 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   })
   const [editingPurposeId, setEditingPurposeId] = useState<string | 'new' | null>(null)
 
+  const [syncSettings, setSyncSettings] = useState<SyncSettings>({
+    githubToken: null, githubTokenSet: false, repo: null, branch: 'main',
+    filePath: 'peernotes', lastSyncedAt: null, lastSyncError: null,
+    autoSyncEnabled: false, autoSyncIntervalMinutes: 15, autoSyncDirection: 'both',
+  })
+  const [tokenDraft, setTokenDraft] = useState<string | null>(null)
+  const [repoDraft, setRepoDraft] = useState('')
+  const [branchDraft, setBranchDraft] = useState('main')
+  const [filePathDraft, setFilePathDraft] = useState('peernotes')
+  const [pushState, setPushState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [pushMsg, setPushMsg] = useState('')
+  const [pullState, setPullState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [pullMsg, setPullMsg] = useState('')
+
   useEffect(() => {
     window.api.ai.settings.get().then(setAiSettings)
+  }, [])
+
+  useEffect(() => {
+    window.api.sync.getSettings().then(s => {
+      setSyncSettings(s)
+      setRepoDraft(s.repo ?? '')
+      setBranchDraft(s.branch)
+      setFilePathDraft(s.filePath)
+    })
+    return window.api.sync.onUpdated(() => {
+      window.api.sync.getSettings().then(setSyncSettings)
+    })
   }, [])
 
   const handleReset = async () => {
@@ -413,6 +489,35 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   const handleRemovePurpose = async (id: string) => {
     await window.api.ai.purposes.remove(id)
     setAiSettings((s) => ({ ...s, purposes: s.purposes.filter((p) => p.id !== id) }))
+  }
+
+  const setSyncField = async <K extends keyof SyncSettings>(key: K, value: SyncSettings[K]) => {
+    setSyncSettings(s => ({ ...s, [key]: value }))
+    await window.api.sync.setSettings({ [key]: value } as Partial<SyncSettings>)
+  }
+
+  const handlePush = async () => {
+    if (!workspaceId) return
+    setPushState('loading'); setPushMsg('')
+    try {
+      const r = await window.api.sync.push(workspaceId)
+      setPushState('done'); setPushMsg(`${r.total} notes pushed`)
+      setSyncSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
+    } catch (err) {
+      setPushState('error'); setPushMsg(err instanceof Error ? err.message : 'Push failed')
+    }
+  }
+
+  const handlePull = async () => {
+    if (!workspaceId) return
+    setPullState('loading'); setPullMsg('')
+    try {
+      const r = await window.api.sync.pull(workspaceId)
+      setPullState('done'); setPullMsg(`${r.imported} imported, ${r.skipped} skipped`)
+      setSyncSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
+    } catch (err) {
+      setPullState('error'); setPullMsg(err instanceof Error ? err.message : 'Pull failed')
+    }
   }
 
   return (
@@ -572,6 +677,140 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
             <Button $size="sm" $variant="ghost" onClick={onImport}>
               ↓ Import
             </Button>
+          </Row>
+        </Card>
+      </Section>
+
+      {/* ── GitHub Sync ────────────────────────────────────────────── */}
+      <Section>
+        <SectionLabel>GitHub Sync</SectionLabel>
+        <Card>
+          <InputRow>
+            <InputLabel>GitHub Token</InputLabel>
+            <Input
+              type="password"
+              value={tokenDraft !== null ? tokenDraft : (syncSettings.githubTokenSet ? '••••••••••••' : '')}
+              placeholder="ghp_…"
+              onFocus={() => setTokenDraft('')}
+              onChange={(e) => setTokenDraft(e.target.value)}
+              onBlur={() => {
+                if (tokenDraft) setSyncField('githubToken', tokenDraft)
+                setTokenDraft(null)
+              }}
+            />
+          </InputRow>
+          <RowDivider />
+          <InputRow>
+            <InputLabel>Repository</InputLabel>
+            <Input
+              value={repoDraft}
+              placeholder="owner/repo"
+              onChange={(e) => setRepoDraft(e.target.value)}
+              onBlur={() => setSyncField('repo', repoDraft || null)}
+            />
+          </InputRow>
+          <RowDivider />
+          <InputRow>
+            <InputLabel>Branch</InputLabel>
+            <Input
+              value={branchDraft}
+              placeholder="main"
+              onChange={(e) => setBranchDraft(e.target.value)}
+              onBlur={() => setSyncField('branch', branchDraft || 'main')}
+            />
+          </InputRow>
+          <RowDivider />
+          <InputRow>
+            <InputLabel>Backup Folder</InputLabel>
+            <Input
+              value={filePathDraft}
+              placeholder="peernotes"
+              onChange={(e) => setFilePathDraft(e.target.value)}
+              onBlur={() => setSyncField('filePath', filePathDraft || 'peernotes')}
+            />
+          </InputRow>
+          {workspaceName && (
+            <BackupPathPreview>
+              Saves to: {(filePathDraft || 'peernotes').replace(/\/+$/, '')}/{workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'default'}.json
+            </BackupPathPreview>
+          )}
+          <RowDivider />
+          <Row>
+            <RowMeta>
+              <RowTitle>Auto-sync</RowTitle>
+              <RowDesc>Push and pull automatically in the background</RowDesc>
+            </RowMeta>
+            <ToggleLabel>
+              <ToggleInput
+                type="checkbox"
+                checked={syncSettings.autoSyncEnabled}
+                onChange={(e) => setSyncField('autoSyncEnabled', e.target.checked)}
+              />
+              <ToggleSlider />
+            </ToggleLabel>
+          </Row>
+          {syncSettings.autoSyncEnabled && (
+            <>
+              <RowDivider />
+              <Row>
+                <RowMeta>
+                  <RowTitle>Interval</RowTitle>
+                </RowMeta>
+                <SegmentedControl>
+                  {INTERVAL_OPTIONS.map(({ value, label }) => (
+                    <Segment
+                      key={value}
+                      $active={syncSettings.autoSyncIntervalMinutes === value}
+                      onClick={() => setSyncField('autoSyncIntervalMinutes', value)}
+                    >
+                      {label}
+                    </Segment>
+                  ))}
+                </SegmentedControl>
+              </Row>
+              <RowDivider />
+              <Row>
+                <RowMeta>
+                  <RowTitle>Direction</RowTitle>
+                </RowMeta>
+                <SegmentedControl>
+                  {DIRECTION_OPTIONS.map(({ value, label }) => (
+                    <Segment
+                      key={value}
+                      $active={syncSettings.autoSyncDirection === value}
+                      onClick={() => setSyncField('autoSyncDirection', value)}
+                    >
+                      {label}
+                    </Segment>
+                  ))}
+                </SegmentedControl>
+              </Row>
+            </>
+          )}
+          <RowDivider />
+          <Row>
+            <SyncStatusText $variant={syncSettings.lastSyncError ? 'error' : undefined}>
+              {syncSettings.lastSyncError ?? `Last synced: ${formatLastSynced(syncSettings.lastSyncedAt)}`}
+            </SyncStatusText>
+            <SyncActions>
+              <Button
+                $size="sm"
+                $variant="ghost"
+                onClick={handlePull}
+                disabled={pullState === 'loading' || !workspaceId || !syncSettings.repo || !syncSettings.githubTokenSet}
+                title={pullMsg || undefined}
+              >
+                {pullState === 'loading' ? 'Pulling…' : pullState === 'done' ? `↓ ${pullMsg}` : pullState === 'error' ? '↓ Error' : '↓ Pull'}
+              </Button>
+              <Button
+                $size="sm"
+                onClick={handlePush}
+                disabled={pushState === 'loading' || !workspaceId || !syncSettings.repo || !syncSettings.githubTokenSet}
+                title={pushMsg || undefined}
+              >
+                {pushState === 'loading' ? 'Pushing…' : pushState === 'done' ? `↑ ${pushMsg}` : pushState === 'error' ? '↑ Error' : '↑ Push'}
+              </Button>
+            </SyncActions>
           </Row>
         </Card>
       </Section>

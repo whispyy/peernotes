@@ -290,6 +290,7 @@ export function App({ mode, setThemeMode }: Props) {
               onImport={() => setImportOpen(true)}
               onReset={() => { refreshPeople(); refreshNotes() }}
               workspaceId={workspaceId}
+              workspaceName={activeWorkspace?.name ?? null}
             />
           )}
         </Content>

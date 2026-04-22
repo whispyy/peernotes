@@ -72,6 +72,23 @@ export interface ImportResult {
   peopleCreated: number
 }
 
+// ── GitHub Sync ───────────────────────────────────────────────────────────────
+
+export type SyncDirection = 'push' | 'pull' | 'both'
+
+export interface SyncSettings {
+  githubToken: string | null
+  githubTokenSet: boolean
+  repo: string | null
+  branch: string
+  filePath: string
+  lastSyncedAt: number | null
+  lastSyncError: string | null
+  autoSyncEnabled: boolean
+  autoSyncIntervalMinutes: number
+  autoSyncDirection: SyncDirection
+}
+
 // ── AI Summary ────────────────────────────────────────────────────────────────
 
 export interface AiPurposePreset {

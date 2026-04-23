@@ -39,6 +39,7 @@ declare global {
         remove: (id: string) => Promise<void>
         getActive: () => Promise<string | null>
         setActive: (id: string) => Promise<void>
+        onChanged: (cb: () => void) => (() => void)
       }
       sync: {
         getSettings: () => Promise<SyncSettings>

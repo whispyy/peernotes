@@ -100,6 +100,10 @@ export function notifyPeopleUpdated(): void {
   mainWindow?.webContents.send('people:updated')
 }
 
+export function notifyWorkspaceChanged(): void {
+  quickEntryWindow?.webContents.send('workspace:changed')
+}
+
 export function notifySyncUpdated(): void {
   mainWindow?.webContents.send('sync:updated')
 }

@@ -124,16 +124,22 @@ export function QuickEntryApp() {
   const loadPeople = useCallback(() => {
     window.api.workspace.getActive().then((workspaceId) => {
       if (workspaceId) {
-        window.api.people.list(workspaceId).then(setPeople)
+        window.api.people.list(workspaceId).then((list) => {
+          setPeople(list)
+          setSelectedPerson((prev) => (list.some((p) => p.id === prev?.id) ? prev : null))
+        })
       } else {
         setPeople([])
+        setSelectedPerson(null)
       }
     })
   }, [])
 
   useEffect(() => {
     loadPeople()
-    return window.api.people.onUpdated(loadPeople)
+    const unsubPeople = window.api.people.onUpdated(loadPeople)
+    const unsubWorkspace = window.api.workspace.onChanged(loadPeople)
+    return () => { unsubPeople(); unsubWorkspace() }
   }, [loadPeople])
 
   const handleSave = useCallback(async () => {

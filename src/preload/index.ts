@@ -56,6 +56,10 @@ contextBridge.exposeInMainWorld('api', {
     remove: (id: string): Promise<void> => ipcRenderer.invoke('workspace:remove', id),
     getActive: (): Promise<string | null> => ipcRenderer.invoke('workspace:getActive'),
     setActive: (id: string): Promise<void> => ipcRenderer.invoke('workspace:setActive', id),
+    onChanged: (cb: () => void): (() => void) => {
+      ipcRenderer.on('workspace:changed', cb)
+      return () => ipcRenderer.removeListener('workspace:changed', cb)
+    }
   },
   sync: {
     getSettings: (): Promise<SyncSettings> => ipcRenderer.invoke('sync:settings:get'),

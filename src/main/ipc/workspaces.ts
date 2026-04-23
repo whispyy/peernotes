@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { getDb } from '../store/db'
+import { notifyWorkspaceChanged } from '../windows'
 import type { Workspace } from '@shared/types'
 
 // Tracks the currently active workspace ID in-memory so the quick-entry
@@ -56,5 +57,6 @@ export function registerWorkspaceHandlers(): void {
 
   ipcMain.handle('workspace:setActive', (_e, id: string): void => {
     activeWorkspaceId = id
+    notifyWorkspaceChanged()
   })
 }

@@ -19,6 +19,7 @@ declare global {
         add: (workspaceId: string, name: string) => Promise<Person>
         rename: (id: string, name: string) => Promise<void>
         remove: (id: string) => Promise<void>
+        onUpdated: (cb: () => void) => (() => void)
       }
       notes: {
         list: (workspaceId: string, offset?: number, limit?: number) => Promise<Note[]>

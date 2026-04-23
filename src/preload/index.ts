@@ -22,7 +22,11 @@ contextBridge.exposeInMainWorld('api', {
     add: (workspaceId: string, name: string): Promise<Person> =>
       ipcRenderer.invoke('people:add', workspaceId, name),
     rename: (id: string, name: string): Promise<void> => ipcRenderer.invoke('people:rename', id, name),
-    remove: (id: string): Promise<void> => ipcRenderer.invoke('people:remove', id)
+    remove: (id: string): Promise<void> => ipcRenderer.invoke('people:remove', id),
+    onUpdated: (cb: () => void): (() => void) => {
+      ipcRenderer.on('people:updated', cb)
+      return () => ipcRenderer.removeListener('people:updated', cb)
+    }
   },
   notes: {
     list: (workspaceId: string, offset = 0, limit = 100): Promise<Note[]> =>

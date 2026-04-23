@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../store/db'
+import { notifyPeopleUpdated } from '../windows'
 import type { Person } from '@shared/types'
 
 export const SELECT_PERSON = `SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt FROM people`
@@ -35,6 +36,7 @@ export function registerPeopleHandlers(): void {
       )
     })()
 
+    notifyPeopleUpdated()
     return person
   })
 
@@ -54,11 +56,13 @@ export function registerPeopleHandlers(): void {
       if (conflict) throw new Error('Name already taken')
       db.prepare('UPDATE people SET name = ? WHERE id = ?').run(trimmed, id)
     })()
+    notifyPeopleUpdated()
   })
 
   ipcMain.handle('people:remove', (_e, id: string): void => {
     if (!id || typeof id !== 'string') return
     // Notes cascade via FK ON DELETE CASCADE
     getDb().prepare('DELETE FROM people WHERE id = ?').run(id)
+    notifyPeopleUpdated()
   })
 }

@@ -121,11 +121,20 @@ export function QuickEntryApp() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => {
+  const loadPeople = useCallback(() => {
     window.api.workspace.getActive().then((workspaceId) => {
-      if (workspaceId) window.api.people.list(workspaceId).then(setPeople)
+      if (workspaceId) {
+        window.api.people.list(workspaceId).then(setPeople)
+      } else {
+        setPeople([])
+      }
     })
   }, [])
+
+  useEffect(() => {
+    loadPeople()
+    return window.api.people.onUpdated(loadPeople)
+  }, [loadPeople])
 
   const handleSave = useCallback(async () => {
     if (!selectedPerson || !note.trim()) return

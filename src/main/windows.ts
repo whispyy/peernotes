@@ -95,6 +95,11 @@ export function notifyMainWindow(): void {
   mainWindow?.webContents.send('notes:updated')
 }
 
+export function notifyPeopleUpdated(): void {
+  quickEntryWindow?.webContents.send('people:updated')
+  mainWindow?.webContents.send('people:updated')
+}
+
 export function notifySyncUpdated(): void {
   mainWindow?.webContents.send('sync:updated')
 }

@@ -81,6 +81,23 @@ const RenameError = styled.span`
   padding: 2px ${({ theme }) => theme.spacing['3']};
 `
 
+const ConfirmRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['3']};
+  padding: ${({ theme }) => theme.spacing['2']} ${({ theme }) => theme.spacing['3']};
+  background: ${({ theme }) => theme.colors.bg.secondary};
+  border-radius: 0 0 ${({ theme }) => theme.radius.md} ${({ theme }) => theme.radius.md};
+  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  border-top: none;
+`
+
+const ConfirmText = styled.span`
+  flex: 1;
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+`
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove }: Props) {
@@ -92,6 +109,19 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
   const [renameError, setRenameError] = useState('')
   const [renaming, setRenaming] = useState(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
+
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
+
+  const handleRemove = async (id: string) => {
+    setRemoving(true)
+    try {
+      await onRemove(id)
+      setConfirmRemoveId(null)
+    } finally {
+      setRemoving(false)
+    }
+  }
 
   useEffect(() => {
     if (renamingId) renameInputRef.current?.focus()
@@ -114,6 +144,7 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
     setRenamingId(p.id)
     setRenameValue(p.name)
     setRenameError('')
+    setConfirmRemoveId(null)
   }
 
   const cancelRename = () => {
@@ -203,7 +234,7 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
                         <Button $variant="ghost" $size="sm" onClick={() => startRename(p)}>
                           Rename
                         </Button>
-                        <Button $variant="danger" $size="sm" onClick={() => onRemove(p.id)}>
+                        <Button $variant="danger" $size="sm" onClick={() => setConfirmRemoveId(p.id)}>
                           Remove
                         </Button>
                       </>
@@ -212,6 +243,19 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
                 </PersonRow>
                 {renamingId === p.id && renameError && (
                   <RenameError>{renameError}</RenameError>
+                )}
+                {confirmRemoveId === p.id && (
+                  <ConfirmRow>
+                    <ConfirmText>
+                      Remove {p.name} and all {noteCountById[p.id] ?? 0} note{(noteCountById[p.id] ?? 0) !== 1 ? 's' : ''}? This cannot be undone.
+                    </ConfirmText>
+                    <Button $variant="danger" $size="sm" onClick={() => handleRemove(p.id)} disabled={removing}>
+                      Confirm
+                    </Button>
+                    <Button $variant="ghost" $size="sm" onClick={() => setConfirmRemoveId(null)} disabled={removing}>
+                      Cancel
+                    </Button>
+                  </ConfirmRow>
                 )}
               </div>
             ))}

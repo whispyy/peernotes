@@ -146,4 +146,30 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 5')
   }
+
+  if (version < 6) {
+    db.transaction(() => {
+      db.exec(`INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('quick_entry_shortcut', 'Ctrl+Cmd+Alt+Space')`)
+    })()
+    db.pragma('user_version = 6')
+  }
+
+  if (version < 7) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `)
+      // Migrate shortcut from ai_settings if it was set there
+      db.exec(`
+        INSERT OR IGNORE INTO app_settings (key, value)
+        SELECT 'quick_entry_shortcut', value FROM ai_settings WHERE key = 'quick_entry_shortcut';
+        INSERT OR IGNORE INTO app_settings (key, value) VALUES ('quick_entry_shortcut', 'Ctrl+Cmd+Alt+Space');
+        DELETE FROM ai_settings WHERE key = 'quick_entry_shortcut';
+      `)
+    })()
+    db.pragma('user_version = 7')
+  }
 }

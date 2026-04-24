@@ -48,6 +48,10 @@ declare global {
         pull: (workspaceId: string) => Promise<{ imported: number; skipped: number }>
         onUpdated: (cb: () => void) => (() => void)
       }
+      shortcut: {
+        get: () => Promise<string>
+        set: (shortcut: string) => Promise<{ ok: boolean; error?: string }>
+      }
       ai: {
         settings: {
           get: () => Promise<AiSettings>

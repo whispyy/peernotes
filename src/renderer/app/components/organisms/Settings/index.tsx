@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
 import type { AiPurposePreset, AiSettings, SyncSettings, SyncDirection } from '@shared/types'
@@ -125,6 +125,25 @@ const Segment = styled.button<{ $active: boolean }>`
 `
 
 // ─── Keyboard shortcut ───────────────────────────────────────────────────────
+
+const RecordingArea = styled.div`
+  padding: ${({ theme }) => theme.spacing['1.5']} ${({ theme }) => theme.spacing['3']};
+  background: ${({ theme }) => theme.colors.bg.primary};
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  border-radius: ${({ theme }) => theme.radius.md};
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+  outline: none;
+  cursor: default;
+  user-select: none;
+  min-width: 160px;
+  text-align: center;
+`
+
+const ShortcutError = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.danger};
+`
 
 const KbdGroup = styled.div`
   display: flex;
@@ -360,6 +379,48 @@ const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
 ]
 
 type ResetState = 'idle' | 'confirm' | 'deleting' | 'error'
+type ShortcutState = 'idle' | 'recording' | 'preview'
+
+function acceleratorToKeys(acc: string): string[] {
+  return acc.split('+').map((p) => {
+    if (p === 'Cmd' || p === 'Command') return '⌘'
+    if (p === 'Ctrl' || p === 'Control') return '⌃'
+    if (p === 'Alt' || p === 'Option') return '⌥'
+    if (p === 'Shift') return '⇧'
+    if (p === 'Space') return 'Space'
+    return p.length === 1 ? p.toUpperCase() : p
+  })
+}
+
+function eventToAccelerator(e: React.KeyboardEvent<HTMLDivElement>): string | null {
+  const modifiers: string[] = []
+  if (e.ctrlKey) modifiers.push('Ctrl')
+  if (e.metaKey) modifiers.push('Cmd')
+  if (e.altKey) modifiers.push('Alt')
+  if (e.shiftKey) modifiers.push('Shift')
+  if (modifiers.length === 0) return null
+
+  const key = e.key
+  if (['Control', 'Meta', 'Alt', 'Shift'].includes(key)) return null
+
+  let mainKey: string
+  // Use e.code for Space — e.key is ' ' (space char) when modifiers are held,
+  // which produces an invalid Electron accelerator string.
+  if (e.code === 'Space') {
+    mainKey = 'Space'
+  } else {
+    switch (key) {
+      case 'ArrowLeft': mainKey = 'Left'; break
+      case 'ArrowRight': mainKey = 'Right'; break
+      case 'ArrowUp': mainKey = 'Up'; break
+      case 'ArrowDown': mainKey = 'Down'; break
+      case 'Enter': mainKey = 'Return'; break
+      default: mainKey = key.length === 1 ? key.toUpperCase() : key
+    }
+  }
+
+  return [...modifiers, mainKey].join('+')
+}
 
 // ─── Purpose editor sub-component ────────────────────────────────────────────
 
@@ -408,6 +469,49 @@ function PurposeEditor({ initial, onSave, onCancel }: PurposeEditorProps) {
 
 export function Settings({ mode, setThemeMode, onExport, onImport, onReset, workspaceId, workspaceName }: Props) {
   const [resetState, setResetState] = useState<ResetState>('idle')
+
+  // Shortcut state
+  const [shortcut, setShortcut] = useState('')
+  const [shortcutState, setShortcutState] = useState<ShortcutState>('idle')
+  const [pendingShortcut, setPendingShortcut] = useState('')
+  const [shortcutError, setShortcutError] = useState('')
+  const [shortcutSaving, setShortcutSaving] = useState(false)
+  const recordingRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    window.api.shortcut.get().then(setShortcut)
+  }, [])
+
+  useEffect(() => {
+    if (shortcutState === 'recording') recordingRef.current?.focus()
+  }, [shortcutState])
+
+  const handleRecordKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    if (e.key === 'Escape') { setShortcutState('idle'); return }
+    const acc = eventToAccelerator(e)
+    if (acc) { setPendingShortcut(acc); setShortcutState('preview'); setShortcutError('') }
+  }
+
+  const saveShortcut = async () => {
+    setShortcutSaving(true)
+    try {
+      const result = await window.api.shortcut.set(pendingShortcut)
+      if (result.ok) {
+        setShortcut(pendingShortcut)
+        setShortcutState('idle')
+        setShortcutError('')
+      } else {
+        setShortcutError(result.error ?? 'Could not set shortcut')
+        setShortcutState('preview')
+      }
+    } catch {
+      setShortcutError('Could not set shortcut')
+      setShortcutState('preview')
+    } finally {
+      setShortcutSaving(false)
+    }
+  }
 
   // AI settings state
   const [aiSettings, setAiSettings] = useState<AiSettings>({
@@ -556,13 +660,48 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
               <RowTitle>Quick entry</RowTitle>
               <RowDesc>Open the note panel from anywhere on your Mac</RowDesc>
             </RowMeta>
-            <KbdGroup>
-              <Kbd>⌃</Kbd>
-              <Kbd>⌘</Kbd>
-              <Kbd>⌥</Kbd>
-              <Kbd>Space</Kbd>
-            </KbdGroup>
+
+            {shortcutState === 'idle' && shortcut && (
+              <>
+                <KbdGroup>
+                  {acceleratorToKeys(shortcut).map((k) => <Kbd key={k}>{k}</Kbd>)}
+                </KbdGroup>
+                <Button $variant="ghost" $size="sm" onClick={() => setShortcutState('recording')}>
+                  Change
+                </Button>
+              </>
+            )}
+
+            {shortcutState === 'recording' && (
+              <RecordingArea
+                ref={recordingRef}
+                tabIndex={0}
+                onKeyDown={handleRecordKeyDown}
+                onBlur={() => setShortcutState('idle')}
+              >
+                Press keys…
+              </RecordingArea>
+            )}
+
+            {shortcutState === 'preview' && (
+              <>
+                <KbdGroup>
+                  {acceleratorToKeys(pendingShortcut).map((k) => <Kbd key={k}>{k}</Kbd>)}
+                </KbdGroup>
+                <Button $variant="primary" $size="sm" onClick={saveShortcut} disabled={shortcutSaving}>
+                  {shortcutSaving ? 'Saving…' : 'Save'}
+                </Button>
+                <Button $variant="ghost" $size="sm" onClick={() => setShortcutState('idle')} disabled={shortcutSaving}>
+                  Cancel
+                </Button>
+              </>
+            )}
           </Row>
+          {shortcutError && (
+            <Row style={{ paddingTop: 0 }}>
+              <ShortcutError>{shortcutError}</ShortcutError>
+            </Row>
+          )}
         </Card>
       </Section>
 
@@ -822,8 +961,8 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
           {resetState === 'idle' && (
             <Row>
               <RowMeta>
-                <RowTitle>Reset all data</RowTitle>
-                <RowDesc>Permanently removes all notes and people. Cannot be undone.</RowDesc>
+                <RowTitle>Reset workspace data</RowTitle>
+                <RowDesc>Removes all people and notes in the current workspace. Settings and other workspaces are unaffected.</RowDesc>
               </RowMeta>
               <Button $variant="danger" $size="sm" onClick={() => setResetState('confirm')}>
                 Delete everything
@@ -835,7 +974,7 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
             <ConfirmRow>
               <RowMeta>
                 <RowTitle>Are you sure?</RowTitle>
-                <RowDesc>All notes and people will be deleted. This cannot be undone.</RowDesc>
+                <RowDesc>All people and notes in this workspace will be permanently deleted. This cannot be undone.</RowDesc>
               </RowMeta>
               <ConfirmActions>
                 <Button $variant="ghost" $size="sm" onClick={() => setResetState('idle')}>

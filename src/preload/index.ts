@@ -74,6 +74,11 @@ contextBridge.exposeInMainWorld('api', {
       return () => ipcRenderer.removeListener('sync:updated', cb)
     },
   },
+  shortcut: {
+    get: (): Promise<string> => ipcRenderer.invoke('shortcut:get'),
+    set: (shortcut: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('shortcut:set', shortcut),
+  },
   ai: {
     settings: {
       get: (): Promise<AiSettings> => ipcRenderer.invoke('ai:settings:get'),

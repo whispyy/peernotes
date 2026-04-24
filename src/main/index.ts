@@ -9,21 +9,17 @@ import { registerSettingsHandlers } from './ipc/settings'
 import { registerAiHandlers } from './ipc/ai'
 import { registerWorkspaceHandlers } from './ipc/workspaces'
 import { registerSyncHandlers, cleanupSync } from './ipc/sync'
+import { registerShortcutHandlers, getStoredShortcut, DEFAULT_SHORTCUT } from './ipc/shortcut'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
 
 let tray: Tray | null = null
 
-function createTray(): void {
-  const resourcesPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
-  const icon = nativeImage.createFromPath(join(resourcesPath, 'tray-iconTemplate.png'))
-  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-  tray.setToolTip('Peernotes')
-
-  const menu = Menu.buildFromTemplate([
+function buildTrayMenu(shortcut: string): Menu {
+  return Menu.buildFromTemplate([
     {
       label: 'New Note',
-      accelerator: 'Ctrl+Cmd+Alt+Space',
+      accelerator: shortcut,
       click: toggleQuickEntry
     },
     {
@@ -42,8 +38,14 @@ function createTray(): void {
     { label: 'Check for Updates…', click: () => checkForUpdates(false) },
     { label: 'Quit', click: () => app.quit() }
   ])
+}
 
-  tray.setContextMenu(menu)
+function createTray(shortcut: string): void {
+  const resourcesPath = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
+  const icon = nativeImage.createFromPath(join(resourcesPath, 'tray-iconTemplate.png'))
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
+  tray.setToolTip('Peernotes')
+  tray.setContextMenu(buildTrayMenu(shortcut))
   tray.on('click', () => {
     const win = getMainWindow()
     if (win) {
@@ -67,11 +69,19 @@ app.whenReady().then(() => {
   registerAiHandlers()
   registerWorkspaceHandlers()
   registerSyncHandlers()
+  registerShortcutHandlers((newShortcut) => {
+    tray?.setContextMenu(buildTrayMenu(newShortcut))
+  })
 
+  const shortcut = getStoredShortcut()
   createMainWindow()
-  createTray()
+  createTray(shortcut)
 
-  globalShortcut.register('Ctrl+Cmd+Alt+Space', toggleQuickEntry)
+  try {
+    globalShortcut.register(shortcut, toggleQuickEntry)
+  } catch {
+    globalShortcut.register(DEFAULT_SHORTCUT, toggleQuickEntry)
+  }
 
   // Silent update check at startup — will only prompt if a newer version exists
   setTimeout(() => checkForUpdates(true), 3000)

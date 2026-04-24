@@ -92,10 +92,10 @@ const ConfirmRow = styled.div`
   border-top: none;
 `
 
-const ConfirmText = styled.span`
+const ConfirmText = styled.span<{ $error?: boolean }>`
   flex: 1;
   font-size: ${({ theme }) => theme.typography.size.sm};
-  color: ${({ theme }) => theme.colors.text.muted};
+  color: ${({ $error, theme }) => $error ? theme.colors.danger : theme.colors.text.muted};
 `
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -112,12 +112,16 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
 
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+  const [removeError, setRemoveError] = useState('')
 
   const handleRemove = async (id: string) => {
     setRemoving(true)
+    setRemoveError('')
     try {
       await onRemove(id)
       setConfirmRemoveId(null)
+    } catch {
+      setRemoveError('Could not remove person. Please try again.')
     } finally {
       setRemoving(false)
     }
@@ -246,13 +250,13 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
                 )}
                 {confirmRemoveId === p.id && (
                   <ConfirmRow>
-                    <ConfirmText>
-                      Remove {p.name} and all {noteCountById[p.id] ?? 0} note{(noteCountById[p.id] ?? 0) !== 1 ? 's' : ''}? This cannot be undone.
+                    <ConfirmText $error={!!removeError}>
+                      {removeError || `Remove ${p.name} and all ${noteCountById[p.id] ?? 0} note${(noteCountById[p.id] ?? 0) !== 1 ? 's' : ''}? This cannot be undone.`}
                     </ConfirmText>
                     <Button $variant="danger" $size="sm" onClick={() => handleRemove(p.id)} disabled={removing}>
                       Confirm
                     </Button>
-                    <Button $variant="ghost" $size="sm" onClick={() => setConfirmRemoveId(null)} disabled={removing}>
+                    <Button $variant="ghost" $size="sm" onClick={() => { setConfirmRemoveId(null); setRemoveError('') }} disabled={removing}>
                       Cancel
                     </Button>
                   </ConfirmRow>

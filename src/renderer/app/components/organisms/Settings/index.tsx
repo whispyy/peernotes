@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
-import type { AiPurposePreset, AiSettings, SyncSettings, SyncDirection } from '@shared/types'
+import type { AiPurposePreset, AiSettings, SyncSettings, SyncDirection, ICloudSyncSettings } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { Input } from '../../atoms/Input'
 import { TextArea } from '../../atoms/TextArea'
@@ -533,6 +533,14 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   const [pullState, setPullState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [pullMsg, setPullMsg] = useState('')
 
+  const [icloudSettings, setICloudSettings] = useState<ICloudSyncSettings>({
+    icloudEnabled: false, lastSyncedAt: null, lastSyncError: null,
+  })
+  const [icloudPushState, setICloudPushState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [icloudPushMsg, setICloudPushMsg] = useState('')
+  const [icloudPullState, setICloudPullState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [icloudPullMsg, setICloudPullMsg] = useState('')
+
   useEffect(() => {
     window.api.ai.settings.get().then(setAiSettings)
   }, [])
@@ -544,8 +552,10 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
       setBranchDraft(s.branch)
       setFilePathDraft(s.filePath)
     })
+    window.api.icloud.getSettings().then(setICloudSettings)
     return window.api.sync.onUpdated(() => {
       window.api.sync.getSettings().then(setSyncSettings)
+      window.api.icloud.getSettings().then(setICloudSettings)
     })
   }, [])
 
@@ -621,6 +631,30 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
       setSyncSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
     } catch (err) {
       setPullState('error'); setPullMsg(err instanceof Error ? err.message : 'Pull failed')
+    }
+  }
+
+  const handleICloudPush = async () => {
+    if (!workspaceId) return
+    setICloudPushState('loading'); setICloudPushMsg('')
+    try {
+      const r = await window.api.icloud.push(workspaceId)
+      setICloudPushState('done'); setICloudPushMsg(`${r.total} notes saved`)
+      setICloudSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
+    } catch (err) {
+      setICloudPushState('error'); setICloudPushMsg(err instanceof Error ? err.message : 'Save failed')
+    }
+  }
+
+  const handleICloudPull = async () => {
+    if (!workspaceId) return
+    setICloudPullState('loading'); setICloudPullMsg('')
+    try {
+      const r = await window.api.icloud.pull(workspaceId)
+      setICloudPullState('done'); setICloudPullMsg(`${r.imported} imported, ${r.skipped} skipped`)
+      setICloudSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
+    } catch (err) {
+      setICloudPullState('error'); setICloudPullMsg(err instanceof Error ? err.message : 'Restore failed')
     }
   }
 
@@ -816,6 +850,56 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
             <Button $size="sm" $variant="ghost" onClick={onImport}>
               ↓ Import
             </Button>
+          </Row>
+        </Card>
+      </Section>
+
+      {/* ── iCloud Sync ────────────────────────────────────────────── */}
+      <Section>
+        <SectionLabel>iCloud Sync</SectionLabel>
+        <Card>
+          <Row>
+            <RowMeta>
+              <RowTitle>Sync via iCloud Drive</RowTitle>
+              <RowDesc>Automatically keep notes in sync across your Macs — no account needed</RowDesc>
+            </RowMeta>
+            <ToggleLabel>
+              <ToggleInput
+                type="checkbox"
+                checked={icloudSettings.icloudEnabled}
+                onChange={async (e) => {
+                  const icloudEnabled = e.target.checked
+                  setICloudSettings(s => ({ ...s, icloudEnabled }))
+                  await window.api.icloud.setSettings({ icloudEnabled })
+                }}
+              />
+              <ToggleSlider />
+            </ToggleLabel>
+          </Row>
+          <RowDivider />
+          <Row>
+            <SyncStatusText $variant={icloudSettings.lastSyncError ? 'error' : undefined}>
+              {icloudSettings.lastSyncError ?? `Last synced: ${formatLastSynced(icloudSettings.lastSyncedAt)}`}
+            </SyncStatusText>
+            <SyncActions>
+              <Button
+                $size="sm"
+                $variant="ghost"
+                onClick={handleICloudPull}
+                disabled={icloudPullState === 'loading' || !workspaceId}
+                title={icloudPullMsg || undefined}
+              >
+                {icloudPullState === 'loading' ? 'Restoring…' : icloudPullState === 'done' ? `↓ ${icloudPullMsg}` : icloudPullState === 'error' ? '↓ Error' : '↓ Restore'}
+              </Button>
+              <Button
+                $size="sm"
+                onClick={handleICloudPush}
+                disabled={icloudPushState === 'loading' || !workspaceId}
+                title={icloudPushMsg || undefined}
+              >
+                {icloudPushState === 'loading' ? 'Saving…' : icloudPushState === 'done' ? `↑ ${icloudPushMsg}` : icloudPushState === 'error' ? '↑ Error' : '↑ Save'}
+              </Button>
+            </SyncActions>
           </Row>
         </Card>
       </Section>

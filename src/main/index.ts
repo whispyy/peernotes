@@ -9,6 +9,7 @@ import { registerSettingsHandlers } from './ipc/settings'
 import { registerAiHandlers } from './ipc/ai'
 import { registerWorkspaceHandlers } from './ipc/workspaces'
 import { registerSyncHandlers, cleanupSync } from './ipc/sync'
+import { registerICloudSyncHandlers, cleanupICloudSync } from './ipc/icloud-sync'
 import { registerShortcutHandlers, getStoredShortcut, DEFAULT_SHORTCUT } from './ipc/shortcut'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
@@ -69,6 +70,7 @@ app.whenReady().then(() => {
   registerAiHandlers()
   registerWorkspaceHandlers()
   registerSyncHandlers()
+  registerICloudSyncHandlers()
   registerShortcutHandlers((newShortcut) => {
     tray?.setContextMenu(buildTrayMenu(newShortcut))
   })
@@ -99,5 +101,6 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   cleanupSync()
+  cleanupICloudSync()
   closeDb()
 })

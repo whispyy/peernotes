@@ -84,6 +84,10 @@ export function PersonSelector({ people, value, onChange, autoFocus }: Props) {
   }, [autoFocus])
 
   useEffect(() => {
+    if (value === null) setQuery('')
+  }, [value])
+
+  useEffect(() => {
     setCursor(0)
   }, [query])
 

@@ -172,4 +172,15 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 7')
   }
+
+  if (version < 8) {
+    db.transaction(() => {
+      db.exec(`
+        ALTER TABLE sync_settings ADD COLUMN icloud_enabled INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE sync_settings ADD COLUMN icloud_last_synced_at INTEGER;
+        ALTER TABLE sync_settings ADD COLUMN icloud_last_sync_error TEXT;
+      `)
+    })()
+    db.pragma('user_version = 8')
+  }
 }

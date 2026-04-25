@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -75,6 +75,15 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('sync:updated', cb)
       return () => ipcRenderer.removeListener('sync:updated', cb)
     },
+  },
+  icloud: {
+    getSettings: (): Promise<ICloudSyncSettings> => ipcRenderer.invoke('icloud:settings:get'),
+    setSettings: (patch: Partial<ICloudSyncSettings>): Promise<void> =>
+      ipcRenderer.invoke('icloud:settings:set', patch),
+    push: (workspaceId: string): Promise<{ total: number }> =>
+      ipcRenderer.invoke('icloud:push', workspaceId),
+    pull: (workspaceId: string): Promise<{ imported: number; skipped: number }> =>
+      ipcRenderer.invoke('icloud:pull', workspaceId),
   },
   shortcut: {
     get: (): Promise<string> => ipcRenderer.invoke('shortcut:get'),

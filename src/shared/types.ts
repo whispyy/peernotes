@@ -89,6 +89,14 @@ export interface SyncSettings {
   autoSyncDirection: SyncDirection
 }
 
+// ── iCloud Sync ───────────────────────────────────────────────────────────────
+
+export interface ICloudSyncSettings {
+  icloudEnabled: boolean
+  lastSyncedAt: number | null
+  lastSyncError: string | null
+}
+
 // ── AI Summary ────────────────────────────────────────────────────────────────
 
 export interface AiPurposePreset {

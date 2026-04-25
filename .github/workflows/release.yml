@@ -34,10 +34,13 @@ jobs:
           FIX_LIST=""
           OTHER_LIST=""
 
+          FEAT_RE='^feat(\(.*\))?!?: '
+          FIX_RE='^fix(\(.*\))?!?: '
+
           while IFS= read -r line; do
-            if [[ "$line" =~ ^feat(\(.*\))?!?:\ ]]; then
+            if [[ "$line" =~ $FEAT_RE ]]; then
               FEAT_LIST+="- ${line}"$'\n'
-            elif [[ "$line" =~ ^fix(\(.*\))?!?:\ ]]; then
+            elif [[ "$line" =~ $FIX_RE ]]; then
               FIX_LIST+="- ${line}"$'\n'
             elif [[ -n "$line" ]]; then
               OTHER_LIST+="- ${line}"$'\n'

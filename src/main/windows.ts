@@ -61,7 +61,7 @@ export function createQuickEntryWindow(): BrowserWindow {
     resizable: false,
     frame: false,
     transparent: true,
-    roundedCorners: false,
+    roundedCorners: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     vibrancy: 'under-window',
@@ -74,10 +74,6 @@ export function createQuickEntryWindow(): BrowserWindow {
     }
   })
 
-  quickEntryWindow.on('blur', () => {
-    const win = quickEntryWindow
-    setTimeout(() => { if (win && !win.isDestroyed()) win.hide() }, 150)
-  })
   quickEntryWindow.on('closed', () => { quickEntryWindow = null })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {

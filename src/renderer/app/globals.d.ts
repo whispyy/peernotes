@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings } from '@shared/types'
 
 declare global {
   interface Window {
@@ -48,6 +48,12 @@ declare global {
         push: (workspaceId: string) => Promise<{ total: number }>
         pull: (workspaceId: string) => Promise<{ imported: number; skipped: number }>
         onUpdated: (cb: () => void) => (() => void)
+      }
+      icloud: {
+        getSettings: () => Promise<ICloudSyncSettings>
+        setSettings: (patch: Partial<ICloudSyncSettings>) => Promise<void>
+        push: (workspaceId: string) => Promise<{ total: number }>
+        pull: (workspaceId: string) => Promise<{ imported: number; skipped: number }>
       }
       shortcut: {
         get: () => Promise<string>

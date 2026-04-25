@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import type { Person, Sentiment } from '@shared/types'
+import type { Note, Person, Sentiment } from '@shared/types'
 import { NOTE_MAX_LENGTH } from '@shared/types'
+import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
 import { TextArea } from '../../atoms/TextArea'
 import { PersonSelector } from '../../molecules/PersonSelector'
@@ -14,6 +15,8 @@ import {
 interface Props {
   people: Person[]
   onClose: () => void
+  initialNote?: Note
+  initialPerson?: Person
 }
 
 const Body = styled.div`
@@ -28,15 +31,38 @@ const CharCount = styled.span<{ $warn: boolean }>`
   margin-right: auto;
 `
 
-export function AddNoteModal({ people, onClose }: Props) {
+const SaveError = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.danger};
+  margin-right: auto;
+`
+
+const LockedPerson = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['2']};
+  padding: ${({ theme }) => theme.spacing['2']} ${({ theme }) => theme.spacing['2.5']};
+  background: ${({ theme }) => theme.colors.bg.secondary};
+  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  border-radius: ${({ theme }) => theme.radius.md};
+`
+
+const LockedPersonName = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  font-weight: ${({ theme }) => theme.typography.weight.medium};
+  color: ${({ theme }) => theme.colors.text.primary};
+`
+
+export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Props) {
+  const isEditing = !!initialNote
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
-  const [sentiment, setSentiment] = useState<Sentiment>('positive')
-  const [note, setNote] = useState('')
+  const [sentiment, setSentiment] = useState<Sentiment>(initialNote?.sentiment ?? 'positive')
+  const [note, setNote] = useState(initialNote?.note ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cancel the auto-close timer if the modal is dismissed manually
   useEffect(() => {
     return () => {
       if (closeTimerRef.current !== null) clearTimeout(closeTimerRef.current)
@@ -44,38 +70,54 @@ export function AddNoteModal({ people, onClose }: Props) {
   }, [])
 
   const handleSave = useCallback(async () => {
-    if (!selectedPerson || !note.trim() || saving) return
+    if (saving) return
+    if (!isEditing && !selectedPerson) return
+    const trimmedNote = note.trim()
+    if (!trimmedNote) return
     setSaving(true)
+    setSaveError(null)
     try {
-      await window.api.notes.add({ personId: selectedPerson.id, sentiment, note: note.trim() })
+      if (isEditing && initialNote) {
+        await window.api.notes.update(initialNote.id, { sentiment, note: trimmedNote })
+      } else if (selectedPerson) {
+        await window.api.notes.add({ personId: selectedPerson.id, sentiment, note: trimmedNote })
+      }
       setSaved(true)
       closeTimerRef.current = setTimeout(onClose, 600)
-    } catch {
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save.')
       setSaving(false)
     }
-  }, [selectedPerson, sentiment, note, saving, onClose])
+  }, [isEditing, initialNote, selectedPerson, sentiment, note, saving, onClose])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
   }
 
-  const canSave = !!selectedPerson && !!note.trim() && !saving
+  const canSave = !!note.trim() && !saving && (isEditing || !!selectedPerson)
 
   return (
     <ModalBackdrop onClose={onClose} onKeyDown={handleKeyDown}>
       <Card>
         <Header>
-          <Title>New Note</Title>
+          <Title>{isEditing ? 'Edit Note' : 'New Note'}</Title>
           <CloseBtn onClick={onClose} aria-label="Close">×</CloseBtn>
         </Header>
 
         <Body>
-          <PersonSelector
-            people={people}
-            value={selectedPerson}
-            onChange={setSelectedPerson}
-            autoFocus
-          />
+          {isEditing && initialPerson ? (
+            <LockedPerson>
+              <Avatar name={initialPerson.name} size={24} />
+              <LockedPersonName>{initialPerson.name}</LockedPersonName>
+            </LockedPerson>
+          ) : (
+            <PersonSelector
+              people={people}
+              value={selectedPerson}
+              onChange={setSelectedPerson}
+              autoFocus
+            />
+          )}
 
           <SentimentPicker value={sentiment} onChange={setSentiment} />
 
@@ -84,15 +126,19 @@ export function AddNoteModal({ people, onClose }: Props) {
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
             rows={4}
+            autoFocus={isEditing}
           />
         </Body>
 
         <Divider />
 
         <Footer>
-          <CharCount $warn={note.length > NOTE_MAX_LENGTH * 0.9}>
-            {note.length > 0 && `${note.length}/${NOTE_MAX_LENGTH}`}
-          </CharCount>
+          {saveError
+            ? <SaveError>{saveError}</SaveError>
+            : <CharCount $warn={note.length > NOTE_MAX_LENGTH * 0.9}>
+                {note.length > 0 && `${note.length}/${NOTE_MAX_LENGTH}`}
+              </CharCount>
+          }
           <Button $variant="ghost" $size="sm" onClick={onClose} disabled={saving}>
             Cancel
           </Button>

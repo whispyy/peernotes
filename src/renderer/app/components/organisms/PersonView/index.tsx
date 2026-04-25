@@ -17,6 +17,7 @@ interface Props {
   peopleById: Record<string, Person>
   onDelete: (id: string) => Promise<void>
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
+  onEdit?: (note: Note) => void
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -230,7 +231,7 @@ function formatDateLabel(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote }: Props) {
+export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { aiSettings } = useAiSettings()
 
@@ -483,6 +484,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
                 peopleById={peopleById}
                 showPerson={false}
                 onDelete={handleDelete}
+                onEdit={onEdit}
               />
             ))}
             {personHasMore && (

@@ -11,6 +11,7 @@ import { ExportModal } from './components/organisms/ExportModal'
 import { ImportModal } from './components/organisms/ImportModal'
 import { AddNoteModal } from './components/organisms/AddNoteModal'
 import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
+import type { Note } from '@shared/types'
 import type { ThemeMode } from './hooks/useThemeMode'
 
 type Tab = 'timeline' | 'person' | 'people' | 'settings'
@@ -166,6 +167,7 @@ const Content = styled.main`
 export function App({ mode, setThemeMode }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
   const [addNoteOpen, setAddNoteOpen] = useState(false)
+  const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -258,6 +260,7 @@ export function App({ mode, setThemeMode }: Props) {
               notes={filteredNotes}
               peopleById={peopleById}
               onDelete={removeNote}
+              onEdit={setEditingNote}
               searchQuery={searchQuery}
               hasMore={hasMore && !isSearching}
               onLoadMore={loadMore}
@@ -271,6 +274,7 @@ export function App({ mode, setThemeMode }: Props) {
               peopleById={peopleById}
               onDelete={removeNote}
               onAddNote={addNote}
+              onEdit={setEditingNote}
             />
           )}
           {activeTab === 'people' && (
@@ -298,6 +302,14 @@ export function App({ mode, setThemeMode }: Props) {
 
       {addNoteOpen && (
         <AddNoteModal people={people} onClose={() => setAddNoteOpen(false)} />
+      )}
+      {editingNote && (
+        <AddNoteModal
+          people={people}
+          onClose={() => setEditingNote(null)}
+          initialNote={editingNote}
+          initialPerson={peopleById[editingNote.personId]}
+        />
       )}
       {exportOpen && workspaceId && (
         <ExportModal workspaceId={workspaceId} onClose={() => setExportOpen(false)} />

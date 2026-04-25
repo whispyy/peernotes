@@ -9,6 +9,7 @@ interface Props {
   notes: Note[]
   peopleById: Record<string, Person>
   onDelete: (id: string) => void
+  onEdit?: (note: Note) => void
   searchQuery?: string
   hasMore?: boolean
   onLoadMore?: () => Promise<void>
@@ -32,7 +33,7 @@ const Empty = styled.div`
 `
 
 
-export function Timeline({ notes, peopleById, onDelete, searchQuery = '', hasMore, onLoadMore }: Props) {
+export function Timeline({ notes, peopleById, onDelete, onEdit, searchQuery = '', hasMore, onLoadMore }: Props) {
   const [loadingMore, setLoadingMore] = useState(false)
 
   const handleLoadMore = async () => {
@@ -66,6 +67,7 @@ export function Timeline({ notes, peopleById, onDelete, searchQuery = '', hasMor
           peopleById={peopleById}
           showPerson
           onDelete={onDelete}
+          onEdit={onEdit}
           highlight={searchQuery}
         />
       ))}

@@ -146,4 +146,26 @@ export function registerNotesHandlers(): void {
     getDb().prepare('DELETE FROM notes WHERE id = ?').run(id)
     notifyMainWindow()
   })
+
+  ipcMain.handle(
+    'notes:update',
+    (_e, id: string, payload: { sentiment: Sentiment; note: string }): Note => {
+      if (!id || typeof id !== 'string') throw new Error('Invalid note id')
+      const { sentiment, note } = payload
+      if (!VALID_SENTIMENTS.includes(sentiment)) throw new Error('Invalid sentiment')
+      if (!note?.trim()) throw new Error('Note is required')
+
+      const db = getDb()
+      const existing = db
+        .prepare(`${SELECT_NOTE} WHERE id = ?`)
+        .get(id) as Note | undefined
+      if (!existing) throw new Error('Note not found')
+
+      const trimmed = note.trim().slice(0, NOTE_MAX_LENGTH)
+      db.prepare('UPDATE notes SET sentiment = ?, note = ? WHERE id = ?').run(sentiment, trimmed, id)
+
+      notifyMainWindow()
+      return { ...existing, sentiment, note: trimmed }
+    }
+  )
 }

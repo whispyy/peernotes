@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('notes:list-for-person-in-range', personId, from, to),
     add: (payload: { personId: string; sentiment: Sentiment; note: string }): Promise<Note> =>
       ipcRenderer.invoke('notes:add', payload),
+    update: (id: string, payload: { sentiment: Sentiment; note: string }): Promise<Note> =>
+      ipcRenderer.invoke('notes:update', id, payload),
     remove: (id: string): Promise<void> => ipcRenderer.invoke('notes:remove', id),
     onUpdated: (cb: () => void): (() => void) => {
       ipcRenderer.on('notes:updated', cb)

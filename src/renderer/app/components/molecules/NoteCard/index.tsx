@@ -9,6 +9,7 @@ interface Props {
   person: Person
   showPerson?: boolean
   onDelete?: (id: string) => void
+  onEdit?: (note: Note) => void
   highlight?: string
 }
 
@@ -66,23 +67,38 @@ const Mark = styled.mark`
   padding: 0 1px;
 `
 
-const DeleteBtn = styled.button`
-  opacity: 0;
-  background: none;
-  border: none;
-  color: ${({ theme }) => theme.colors.text.muted};
-  cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 16px;
-  line-height: 1;
+const Actions = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing['0.5']};
   align-self: flex-start;
-  transition: opacity 0.12s ease, color 0.12s ease;
+  opacity: 0;
+  transition: opacity 0.12s ease;
 
   ${Card}:hover & {
     opacity: 1;
   }
+`
 
+const ActionBtn = styled.button`
+  background: none;
+  border: none;
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+  padding: ${({ theme }) => theme.spacing['0.5']} ${({ theme }) => theme.spacing['1']};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.12s ease;
+`
+
+const EditBtn = styled(ActionBtn)`
+  &:hover {
+    color: ${({ theme }) => theme.colors.accent};
+  }
+`
+
+const DeleteBtn = styled(ActionBtn)`
+  font-size: 16px;
   &:hover {
     color: ${({ theme }) => theme.colors.danger};
   }
@@ -114,7 +130,8 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   )
 }
 
-export function NoteCard({ note, person, showPerson = false, onDelete, highlight = '' }: Props) {
+export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, highlight = '' }: Props) {
+  const showActions = onEdit || onDelete
   return (
     <Card>
       {showPerson && <Avatar name={person.name} size={32} />}
@@ -132,8 +149,15 @@ export function NoteCard({ note, person, showPerson = false, onDelete, highlight
           <Highlighted text={note.note} query={highlight} />
         </NoteText>
       </Body>
-      {onDelete && (
-        <DeleteBtn onClick={() => onDelete(note.id)} title="Delete">×</DeleteBtn>
+      {showActions && (
+        <Actions>
+          {onEdit && (
+            <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
+          )}
+          {onDelete && (
+            <DeleteBtn onClick={() => onDelete(note.id)} title="Delete">×</DeleteBtn>
+          )}
+        </Actions>
       )}
     </Card>
   )

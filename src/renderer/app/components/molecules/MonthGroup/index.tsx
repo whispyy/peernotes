@@ -8,6 +8,7 @@ interface Props {
   peopleById: Record<string, Person>
   showPerson?: boolean
   onDelete?: (id: string) => void
+  onEdit?: (note: Note) => void
   highlight?: string
 }
 
@@ -26,7 +27,7 @@ const Label = styled.h3`
   letter-spacing: 0.06em;
 `
 
-export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, highlight }: Props) {
+export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, onEdit, highlight }: Props) {
   return (
     <Wrapper>
       <Label>{label}</Label>
@@ -40,6 +41,7 @@ export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, hig
             person={person}
             showPerson={showPerson}
             onDelete={onDelete}
+            onEdit={onEdit}
             highlight={highlight}
           />
         )

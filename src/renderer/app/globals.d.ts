@@ -29,6 +29,7 @@ declare global {
         listForPerson: (personId: string, offset?: number, limit?: number) => Promise<Note[]>
         listForPersonInRange: (personId: string, from: string, to: string) => Promise<Note[]>
         add: (payload: { personId: string; sentiment: Sentiment; note: string }) => Promise<Note>
+        update: (id: string, payload: { sentiment: Sentiment; note: string }) => Promise<Note>
         remove: (id: string) => Promise<void>
         onUpdated: (cb: () => void) => (() => void)
       }

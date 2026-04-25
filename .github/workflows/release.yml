@@ -9,6 +9,60 @@ permissions:
   contents: write
 
 jobs:
+  changelog:
+    name: Update Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Generate changelog entry
+        run: |
+          NEW_TAG=${GITHUB_REF#refs/tags/}
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${NEW_TAG}$" | head -1)
+
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log "$NEW_TAG" --pretty=format:"%s")
+          else
+            COMMITS=$(git log "${PREV_TAG}..${NEW_TAG}" --pretty=format:"%s")
+          fi
+
+          FEAT_LIST=""
+          FIX_LIST=""
+          OTHER_LIST=""
+
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^feat(\(.*\))?!?:\ ]]; then
+              FEAT_LIST+="- ${line}"$'\n'
+            elif [[ "$line" =~ ^fix(\(.*\))?!?:\ ]]; then
+              FIX_LIST+="- ${line}"$'\n'
+            elif [[ -n "$line" ]]; then
+              OTHER_LIST+="- ${line}"$'\n'
+            fi
+          done <<< "$COMMITS"
+
+          ENTRY="## ${NEW_TAG}"$'\n\n'
+          [ -n "$FEAT_LIST" ] && ENTRY+="### Features"$'\n'"${FEAT_LIST}"$'\n'
+          [ -n "$FIX_LIST" ] && ENTRY+="### Bug Fixes"$'\n'"${FIX_LIST}"$'\n'
+          [ -n "$OTHER_LIST" ] && ENTRY+="### Other"$'\n'"${OTHER_LIST}"$'\n'
+
+          if [ -f CHANGELOG.md ]; then
+            printf '%s\n%s' "$ENTRY" "$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            printf '%s' "$ENTRY" > CHANGELOG.md
+          fi
+
+      - name: Commit changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore: update CHANGELOG for ${GITHUB_REF#refs/tags/}"
+          git push origin main
+
   build:
     name: Build
     runs-on: macos-14   # Apple Silicon — cross-compiles x64 via macOS toolchain

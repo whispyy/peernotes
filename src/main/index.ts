@@ -23,7 +23,7 @@ function buildTrayMenu(shortcut: string): Menu {
       click: toggleQuickEntry
     },
     {
-      label: 'Open Dashboard',
+      label: 'Open App',
       click: () => {
         const win = getMainWindow()
         if (win) {

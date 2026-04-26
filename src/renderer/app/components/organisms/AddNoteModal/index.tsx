@@ -56,7 +56,7 @@ const LockedPersonName = styled.span`
 export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Props) {
   const isEditing = !!initialNote
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
-  const [sentiment, setSentiment] = useState<Sentiment>(initialNote?.sentiment ?? 'positive')
+  const [sentiment, setSentiment] = useState<Sentiment>(initialNote?.sentiment ?? 'neutral')
   const [note, setNote] = useState(initialNote?.note ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -136,7 +136,7 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
           {saveError
             ? <SaveError>{saveError}</SaveError>
             : <CharCount $warn={note.length > NOTE_MAX_LENGTH * 0.9}>
-                {note.length > 0 && `${note.length}/${NOTE_MAX_LENGTH}`}
+                {note.length > 0 && `${note.length.toLocaleString()}/${NOTE_MAX_LENGTH.toLocaleString()}`}
               </CharCount>
           }
           <Button $variant="ghost" $size="sm" onClick={onClose} disabled={saving}>

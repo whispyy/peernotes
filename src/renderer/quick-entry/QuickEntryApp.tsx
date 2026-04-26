@@ -200,7 +200,7 @@ const WorkspaceOption = styled.button<{ $active: boolean }>`
 export function QuickEntryApp() {
   const [people, setPeople] = useState<Person[]>([])
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
-  const [sentiment, setSentiment] = useState<Sentiment>('positive')
+  const [sentiment, setSentiment] = useState<Sentiment>('neutral')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -346,7 +346,7 @@ export function QuickEntryApp() {
             <Hint>{saved ? '✓ Saved' : '⌘↵ to save · Esc to close'}</Hint>
             <FooterActions>
               <CharCount $warn={note.length > NOTE_MAX_LENGTH * 0.9}>
-                {note.length}/{NOTE_MAX_LENGTH}
+                {note.length.toLocaleString()}/{NOTE_MAX_LENGTH.toLocaleString()}
               </CharCount>
               <Button
                 $size="sm"

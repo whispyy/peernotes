@@ -1,9 +1,9 @@
 export type Sentiment = 'positive' | 'neutral' | 'negative'
 export const VALID_SENTIMENTS: Sentiment[] = ['positive', 'neutral', 'negative']
 export const SENTIMENT_LABELS: Record<Sentiment, string> = {
-  positive: '+ Positive',
-  neutral: '· Neutral',
-  negative: '– Negative'
+  positive: 'Positive',
+  neutral: 'Neutral',
+  negative: 'Negative'
 }
 
 export interface Workspace {

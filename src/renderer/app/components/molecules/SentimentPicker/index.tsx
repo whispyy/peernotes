@@ -11,39 +11,56 @@ const options = VALID_SENTIMENTS.map((value) => ({ value, label: SENTIMENT_LABEL
 
 const Wrapper = styled.div`
   display: flex;
-  gap: ${({ theme }) => theme.spacing['1.5']};
+  background: ${({ theme }) => theme.colors.bg.primary};
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.md};
+  padding: 3px;
+  gap: 2px;
 `
 
-const Pill = styled.button<{ $sentiment: Sentiment; $active: boolean }>`
+const Dot = styled.span<{ $sentiment: Sentiment; $active: boolean }>`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+  ${({ $sentiment, $active, theme }) => css`
+    background: ${$active
+      ? theme.colors.sentiment[$sentiment]
+      : theme.colors.text.muted};
+  `}
+`
+
+const Segment = styled.button<{ $sentiment: Sentiment; $active: boolean }>`
   flex: 1;
-  padding: ${({ theme }) => theme.spacing['1.5']} 0;
-  border-radius: ${({ theme }) => theme.radius.full};
-  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: ${({ theme }) => theme.spacing['1.5']} ${({ theme }) => theme.spacing['3']};
+  border: none;
+  border-radius: calc(${({ theme }) => theme.radius.md} - 2px);
   font-family: ${({ theme }) => theme.typography.fontFamily};
   font-size: ${({ theme }) => theme.typography.size.sm};
   font-weight: ${({ theme }) => theme.typography.weight.medium};
   cursor: pointer;
-  transition: all 0.12s ease;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
 
   ${({ $sentiment, $active, theme }) => {
-    const map = {
-      positive: { color: theme.colors.sentiment.positive, bg: theme.colors.sentiment.positiveSubtle },
-      neutral: { color: theme.colors.sentiment.neutral, bg: theme.colors.sentiment.neutralSubtle },
-      negative: { color: theme.colors.sentiment.negative, bg: theme.colors.sentiment.negativeSubtle }
-    }
-    const { color, bg } = map[$sentiment]
+    const color = theme.colors.sentiment[$sentiment]
     return $active
       ? css`
-          background: ${bg};
-          border-color: ${color};
+          background: ${theme.colors.bg.secondary};
           color: ${color};
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         `
       : css`
-          background: ${theme.colors.bg.secondary};
+          background: transparent;
           color: ${theme.colors.text.muted};
           &:hover {
-            background: ${bg};
-            color: ${color};
+            background: ${theme.colors.bg.tertiary};
+            color: ${theme.colors.text.primary};
           }
         `
   }}
@@ -53,15 +70,16 @@ export function SentimentPicker({ value, onChange }: Props) {
   return (
     <Wrapper>
       {options.map((o) => (
-        <Pill
+        <Segment
           key={o.value}
           type="button"
           $sentiment={o.value}
           $active={value === o.value}
           onClick={() => onChange(o.value)}
         >
+          <Dot $sentiment={o.value} $active={value === o.value} />
           {o.label}
-        </Pill>
+        </Segment>
       ))}
     </Wrapper>
   )

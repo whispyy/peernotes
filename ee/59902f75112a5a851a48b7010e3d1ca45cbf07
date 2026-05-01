@@ -1,0 +1,25 @@
+src/main/ipc/sync.ts
+  017067a01f3bfa96 5,216
+src/renderer/app/hooks/usePeople.ts
+  017067a01f3bfa96 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ee59902f75112a5a851a48b7010e3d1ca45cbf07",
+  "prompts": {
+    "017067a01f3bfa96": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a36cf3c-6e00-4c19-be7d-8c1cc5935b92",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 1,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    }
+  }
+}

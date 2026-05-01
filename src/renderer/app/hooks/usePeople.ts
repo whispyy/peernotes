@@ -13,6 +13,7 @@ export function usePeople(workspaceId: string | null) {
   }, [workspaceId])
 
   useEffect(() => { refresh() }, [refresh])
+  useEffect(() => window.api.people.onUpdated(refresh), [refresh])
 
   const addPerson = useCallback(async (name: string) => {
     if (!workspaceId) throw new Error('No active workspace')

@@ -2,7 +2,7 @@ import { ipcMain, safeStorage } from 'electron'
 import * as https from 'https'
 import { getDb } from '../store/db'
 import { getActiveWorkspaceId } from './workspaces'
-import { notifyMainWindow, notifySyncUpdated } from '../windows'
+import { notifyMainWindow, notifyPeopleUpdated, notifySyncUpdated } from '../windows'
 import { buildExport } from './export'
 import { performImport } from './import'
 import type { SyncSettings, SyncDirection, ImportPayload } from '@shared/types'
@@ -213,6 +213,7 @@ async function doPull(
   }
   const result = performImport(payload, workspaceId)
   if (result.imported > 0) notifyMainWindow()
+  if (result.peopleCreated > 0) notifyPeopleUpdated()
   return { imported: result.imported, skipped: result.skipped }
 }
 

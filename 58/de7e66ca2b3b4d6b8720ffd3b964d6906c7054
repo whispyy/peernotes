@@ -1,0 +1,47 @@
+src/main/store/db.ts
+  fed0ce82db741d61 186-202
+src/main/index.ts
+  fed0ce82db741d61 13,73
+src/main/ipc/sync.ts
+  fed0ce82db741d61 179-180,186-200,202,205-206,216-217
+src/preload/index.ts
+  fed0ce82db741d61 2,88-99
+src/renderer/app/components/organisms/AddNoteModal/index.tsx
+  fed0ce82db741d61 3,15-16,58-129,140-143,150-184,193,196,198-207,215,255-283
+src/main/ipc/export.ts
+  fed0ce82db741d61 4-5,13-18,54-75,77,83-84,89,92
+src/shared/types.ts
+  fed0ce82db741d61 53-80,95-102
+src/main/ipc/icloud-sync.ts
+  fed0ce82db741d61 10-11,21-22,70-71,73-85,101-124
+src/main/ipc/import.ts
+  fed0ce82db741d61 2,10,83-111
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  fed0ce82db741d61 1,4,108-145,174-207,209-238,240-258,260
+src/renderer/app/globals.d.ts
+  fed0ce82db741d61 1,10,13-18
+src/main/ipc/attachments.ts
+  fed0ce82db741d61 1-155
+src/main/ipc/notes.ts
+  fed0ce82db741d61 7,147-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "58de7e66ca2b3b4d6b8720ffd3b964d6906c7054",
+  "prompts": {
+    "fed0ce82db741d61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1150ff0e-6b66-4a6d-9013-68606f0fa01c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand",
+      "messages": [],
+      "total_additions": 651,
+      "total_deletions": 50,
+      "accepted_lines": 651,
+      "overriden_lines": 0
+    }
+  }
+}

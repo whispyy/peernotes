@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -84,6 +84,18 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('icloud:push', workspaceId),
     pull: (workspaceId: string): Promise<{ imported: number; skipped: number }> =>
       ipcRenderer.invoke('icloud:pull', workspaceId),
+  },
+  attachments: {
+    list: (noteId: string): Promise<Attachment[]> =>
+      ipcRenderer.invoke('attachments:list', noteId),
+    pick: (): Promise<string[] | null> =>
+      ipcRenderer.invoke('attachments:pick'),
+    add: (noteId: string, sourcePath: string): Promise<Attachment> =>
+      ipcRenderer.invoke('attachments:add', noteId, sourcePath),
+    remove: (id: string): Promise<void> =>
+      ipcRenderer.invoke('attachments:remove', id),
+    getPath: (id: string): Promise<string | null> =>
+      ipcRenderer.invoke('attachments:getPath', id),
   },
   shortcut: {
     get: (): Promise<string> => ipcRenderer.invoke('shortcut:get'),

@@ -4,6 +4,7 @@ import { getDb } from '../store/db'
 import { notifyMainWindow } from '../windows'
 import { VALID_SENTIMENTS, NOTE_MAX_LENGTH } from '@shared/types'
 import type { Note, Sentiment } from '@shared/types'
+import { deleteAttachmentFiles } from './attachments'
 
 export const SELECT_NOTE = `
   SELECT id, person_id AS personId, sentiment, note, timestamp
@@ -143,7 +144,12 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle('notes:remove', (_e, id: string): void => {
     if (!id || typeof id !== 'string') return
-    getDb().prepare('DELETE FROM notes WHERE id = ?').run(id)
+    const db = getDb()
+    const atts = db
+      .prepare('SELECT id, mime_type AS mimeType FROM note_attachments WHERE note_id = ?')
+      .all(id) as Array<{ id: string; mimeType: string }>
+    db.prepare('DELETE FROM notes WHERE id = ?').run(id)  // CASCADE deletes attachment rows
+    deleteAttachmentFiles(atts)
     notifyMainWindow()
   })
 

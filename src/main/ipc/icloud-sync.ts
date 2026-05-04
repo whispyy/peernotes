@@ -7,7 +7,8 @@ import { getActiveWorkspaceId } from './workspaces'
 import { notifyMainWindow, notifySyncUpdated } from '../windows'
 import { buildExport } from './export'
 import { performImport } from './import'
-import type { ICloudSyncSettings, ImportPayload } from '@shared/types'
+import { getLocalPath, isValidAttachmentId, isValidMimeType } from './attachments'
+import type { ICloudSyncSettings, ImportPayload, Attachment } from '@shared/types'
 
 const ICLOUD_BASE = path.join(
   os.homedir(),
@@ -16,6 +17,8 @@ const ICLOUD_BASE = path.join(
   'com~apple~CloudDocs',
   'Peernotes',
 )
+
+const ICLOUD_ATTACHMENTS_DIR = path.join(ICLOUD_BASE, 'attachments')
 
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null
 let watcher: fs.FSWatcher | null = null
@@ -64,8 +67,22 @@ function workspaceFilePath(workspaceId: string): string {
 
 export function doICloudPush(workspaceId: string): { total: number } {
   fs.mkdirSync(ICLOUD_BASE, { recursive: true })
-  const exportData = buildExport(workspaceId)
+  // Build export without base64 data — image files travel separately as files in iCloud
+  const exportData = buildExport(workspaceId, undefined, undefined, false)
   fs.writeFileSync(workspaceFilePath(workspaceId), JSON.stringify(exportData, null, 2), 'utf-8')
+
+  // Copy attachment files to iCloud folder
+  if (exportData.attachments.length > 0) {
+    fs.mkdirSync(ICLOUD_ATTACHMENTS_DIR, { recursive: true })
+    for (const att of exportData.attachments) {
+      const localPath = getLocalPath(att.id, att.mimeType)
+      const icloudPath = path.join(ICLOUD_ATTACHMENTS_DIR, path.basename(localPath))
+      if (fs.existsSync(localPath) && !fs.existsSync(icloudPath)) {
+        try { fs.copyFileSync(localPath, icloudPath) } catch { /* skip if iCloud not writable */ }
+      }
+    }
+  }
+
   return { total: exportData.total }
 }
 
@@ -80,7 +97,36 @@ export function doICloudPull(workspaceId: string): { imported: number; skipped: 
   } catch {
     throw new Error('iCloud backup file is corrupted or not a valid Peernotes export')
   }
-  const result = performImport(payload, workspaceId)
+  // Strip attachments from the payload passed to performImport — iCloud attachments
+  // have no base64 data, so performImport can't write the files. Passing them would
+  // insert DB rows without corresponding files (dangling records → broken thumbnails).
+  // We handle attachments here after performImport, only inserting a DB row once the
+  // file is confirmed present locally.
+  const { attachments: icloudAttachments, ...notesPayload } = payload
+  const result = performImport(notesPayload as ImportPayload, workspaceId)
+
+  if (Array.isArray(icloudAttachments) && fs.existsSync(ICLOUD_ATTACHMENTS_DIR)) {
+    const db = getDb()
+    const insertAtt = db.prepare(
+      `INSERT OR IGNORE INTO note_attachments (id, note_id, filename, mime_type, size_bytes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    const checkNote = db.prepare('SELECT id FROM notes WHERE id = ?')
+    for (const att of icloudAttachments as Attachment[]) {
+      if (!att.id || !att.mimeType || !att.noteId) continue
+      if (!isValidAttachmentId(att.id) || !isValidMimeType(att.mimeType)) continue
+      const localPath = getLocalPath(att.id, att.mimeType)
+      const icloudPath = path.join(ICLOUD_ATTACHMENTS_DIR, path.basename(localPath))
+      if (!fs.existsSync(localPath) && fs.existsSync(icloudPath)) {
+        try { fs.copyFileSync(icloudPath, localPath) } catch { continue }
+      }
+      // Only insert DB row if the file exists locally (copy succeeded or was already there)
+      if (fs.existsSync(localPath) && checkNote.get(att.noteId)) {
+        insertAtt.run(att.id, att.noteId, att.filename, att.mimeType, att.sizeBytes ?? 0, att.createdAt ?? new Date().toISOString())
+      }
+    }
+  }
+
   if (result.imported > 0) notifyMainWindow()
   return { imported: result.imported, skipped: result.skipped }
 }

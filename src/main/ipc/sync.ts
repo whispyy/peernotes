@@ -176,21 +176,34 @@ async function ghPut(
 
 // ── Core push / pull ──────────────────────────────────────────────────────────
 
+const GITHUB_SIZE_GUARD_BYTES = 900_000
+
 async function doPush(
   workspaceId: string,
   s: SyncSettings,
 ): Promise<{ total: number }> {
   if (!s.githubToken || !s.repo) throw new Error('Sync not configured — set token and repository')
-  const path = effectivePath(s.filePath, getWorkspaceName(workspaceId))
-  const exportData = buildExport(workspaceId)
-  const content = JSON.stringify(exportData, null, 2)
-  const existing = await ghGet(s.githubToken, s.repo, s.branch, path)
+  const filePath = effectivePath(s.filePath, getWorkspaceName(workspaceId))
+  const exportData = buildExport(workspaceId, undefined, undefined, true)
+  let content = JSON.stringify(exportData, null, 2)
+
+  // Strip base64 image data if total payload exceeds GitHub's practical limit
+  if (Buffer.byteLength(content, 'utf-8') > GITHUB_SIZE_GUARD_BYTES) {
+    console.warn('[sync] Export exceeds size guard — stripping attachment data from GitHub push')
+    const stripped = {
+      ...exportData,
+      attachments: exportData.attachments.map(({ data: _data, ...rest }) => ({ ...rest, data: '' }))
+    }
+    content = JSON.stringify(stripped, null, 2)
+  }
+
+  const existing = await ghGet(s.githubToken, s.repo, s.branch, filePath)
   try {
-    await ghPut(s.githubToken, s.repo, s.branch, path, content, existing?.sha ?? null)
+    await ghPut(s.githubToken, s.repo, s.branch, filePath, content, existing?.sha ?? null)
   } catch (err) {
     if (!(err instanceof GitHubConflictError)) throw err
-    const fresh = await ghGet(s.githubToken, s.repo, s.branch, path)
-    await ghPut(s.githubToken, s.repo, s.branch, path, content, fresh?.sha ?? null)
+    const fresh = await ghGet(s.githubToken, s.repo, s.branch, filePath)
+    await ghPut(s.githubToken, s.repo, s.branch, filePath, content, fresh?.sha ?? null)
   }
   return { total: exportData.total }
 }
@@ -200,8 +213,8 @@ async function doPull(
   s: SyncSettings,
 ): Promise<{ imported: number; skipped: number }> {
   if (!s.githubToken || !s.repo) throw new Error('Sync not configured — set token and repository')
-  const path = effectivePath(s.filePath, getWorkspaceName(workspaceId))
-  const file = await ghGet(s.githubToken, s.repo, s.branch, path)
+  const filePath = effectivePath(s.filePath, getWorkspaceName(workspaceId))
+  const file = await ghGet(s.githubToken, s.repo, s.branch, filePath)
   if (!file) throw new Error('No backup file found in repository at the configured path')
   if (!file.content) throw new Error('Backup file is too large to fetch via the GitHub API (>1 MB)')
   const raw = Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf-8')

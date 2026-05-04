@@ -1,6 +1,7 @@
+import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import { SENTIMENT_LABELS } from '@shared/types'
-import type { Note, Person } from '@shared/types'
+import type { Note, Person, Attachment } from '@shared/types'
 import { Badge } from '../../atoms/Badge'
 import { Avatar } from '../../atoms/Avatar'
 
@@ -104,6 +105,44 @@ const DeleteBtn = styled(ActionBtn)`
   }
 `
 
+const ThumbnailStrip = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing['1.5']};
+  flex-wrap: wrap;
+  margin-top: ${({ theme }) => theme.spacing['2']};
+`
+
+const Thumbnail = styled.img`
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.border.default};
+  }
+`
+
+const LightboxOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+const LightboxImage = styled.img`
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+`
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
@@ -132,33 +171,96 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 
 export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, highlight = '' }: Props) {
   const showActions = onEdit || onDelete
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [thumbPaths, setThumbPaths] = useState<Record<string, string>>({})
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.attachments.list(note.id).then(setAttachments)
+    // Re-fetch when any notes:updated event fires (covers attachment add/remove via edit modal)
+    return window.api.notes.onUpdated(() => {
+      window.api.attachments.list(note.id).then(setAttachments)
+    })
+  }, [note.id])
+
+  useEffect(() => {
+    if (attachments.length === 0) return
+    let cancelled = false
+    async function resolvePaths() {
+      const entries: Record<string, string> = {}
+      for (const att of attachments) {
+        const p = await window.api.attachments.getPath(att.id)
+        if (p && !cancelled) entries[att.id] = `attachment://${p}`
+      }
+      if (!cancelled) setThumbPaths(entries)
+    }
+    resolvePaths()
+    return () => { cancelled = true }
+  }, [attachments])
+
+  const closeLightbox = useCallback(() => setLightboxSrc(null), [])
+
+  useEffect(() => {
+    if (!lightboxSrc) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeLightbox()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [lightboxSrc, closeLightbox])
+
   return (
-    <Card>
-      {showPerson && <Avatar name={person.name} size={32} />}
-      <Body>
-        <Meta>
-          {showPerson && (
-            <Name>
-              <Highlighted text={person.name} query={highlight} />
-            </Name>
+    <>
+      <Card>
+        {showPerson && <Avatar name={person.name} size={32} />}
+        <Body>
+          <Meta>
+            {showPerson && (
+              <Name>
+                <Highlighted text={person.name} query={highlight} />
+              </Name>
+            )}
+            <Badge $sentiment={note.sentiment}>{SENTIMENT_LABELS[note.sentiment]}</Badge>
+            <Timestamp>{formatDate(note.timestamp)}</Timestamp>
+          </Meta>
+          <NoteText>
+            <Highlighted text={note.note} query={highlight} />
+          </NoteText>
+          {attachments.length > 0 && (
+            <ThumbnailStrip>
+              {attachments.map((att) =>
+                thumbPaths[att.id] ? (
+                  <Thumbnail
+                    key={att.id}
+                    src={thumbPaths[att.id]}
+                    alt={att.filename}
+                    title={att.filename}
+                    onClick={() => setLightboxSrc(thumbPaths[att.id])}
+                  />
+                ) : null
+              )}
+            </ThumbnailStrip>
           )}
-          <Badge $sentiment={note.sentiment}>{SENTIMENT_LABELS[note.sentiment]}</Badge>
-          <Timestamp>{formatDate(note.timestamp)}</Timestamp>
-        </Meta>
-        <NoteText>
-          <Highlighted text={note.note} query={highlight} />
-        </NoteText>
-      </Body>
-      {showActions && (
-        <Actions>
-          {onEdit && (
-            <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
-          )}
-          {onDelete && (
-            <DeleteBtn onClick={() => onDelete(note.id)} title="Delete">×</DeleteBtn>
-          )}
-        </Actions>
+        </Body>
+        {showActions && (
+          <Actions>
+            {onEdit && (
+              <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
+            )}
+            {onDelete && (
+              <DeleteBtn onClick={() => onDelete(note.id)} title="Delete">×</DeleteBtn>
+            )}
+          </Actions>
+        )}
+      </Card>
+      {lightboxSrc && (
+        <LightboxOverlay onClick={closeLightbox}>
+          <LightboxImage
+            src={lightboxSrc}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </LightboxOverlay>
       )}
-    </Card>
+    </>
   )
 }

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, globalShortcut, Tray, Menu, nativeImage, protocol } from 'electron'
 import { join } from 'path'
 import { createMainWindow, createQuickEntryWindow, toggleQuickEntry, getMainWindow } from './windows'
 import { registerPeopleHandlers } from './ipc/people'
@@ -10,6 +10,7 @@ import { registerAiHandlers } from './ipc/ai'
 import { registerWorkspaceHandlers } from './ipc/workspaces'
 import { registerSyncHandlers, cleanupSync } from './ipc/sync'
 import { registerICloudSyncHandlers, cleanupICloudSync } from './ipc/icloud-sync'
+import { registerAttachmentHandlers, isAuthorizedAttachmentPath } from './ipc/attachments'
 import { registerShortcutHandlers, getStoredShortcut, DEFAULT_SHORTCUT } from './ipc/shortcut'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
@@ -58,6 +59,18 @@ function createTray(shortcut: string): void {
 }
 
 app.whenReady().then(() => {
+  // Serve local attachment files via a custom protocol so the renderer can
+  // load them in <img> tags (file:// is blocked by Electron's default CSP).
+  // Only paths within the attachments dir or recently picked via dialog are allowed.
+  protocol.registerFileProtocol('attachment', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.slice('attachment://'.length))
+    if (!isAuthorizedAttachmentPath(filePath)) {
+      callback({ error: -10 /* net::ERR_ACCESS_DENIED */ })
+      return
+    }
+    callback({ path: filePath })
+  })
+
   if (!app.isPackaged && process.platform === 'darwin') {
     app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
   }
@@ -69,6 +82,7 @@ app.whenReady().then(() => {
   registerSettingsHandlers()
   registerAiHandlers()
   registerWorkspaceHandlers()
+  registerAttachmentHandlers()
   registerSyncHandlers()
   registerICloudSyncHandlers()
   registerShortcutHandlers((newShortcut) => {

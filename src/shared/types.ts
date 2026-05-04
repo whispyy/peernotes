@@ -28,6 +28,7 @@ export interface Note {
 }
 
 export const NOTE_MAX_LENGTH = 10_000
+export const MAX_ATTACHMENTS_PER_NOTE = 5
 
 // ── Export format ─────────────────────────────────────────────────────────────
 
@@ -50,6 +51,34 @@ export interface ExportResult {
   notes: ExportNote[]
 }
 
+// ── Attachments ───────────────────────────────────────────────────────────────
+
+export interface Attachment {
+  id: string
+  noteId: string
+  filename: string
+  mimeType: string
+  sizeBytes: number
+  createdAt: string
+}
+
+export interface ExportAttachment extends Attachment {
+  data: string  // base64-encoded file content; empty string when not included
+}
+
+export interface ExportResultV2 {
+  version: 2
+  exportedAt: string
+  from: string | null
+  to: string | null
+  total: number
+  people: Person[]
+  notes: ExportNote[]
+  attachments: ExportAttachment[]
+}
+
+export type AnyExportResult = ExportResult | ExportResultV2
+
 // ── Import format ─────────────────────────────────────────────────────────────
 
 /** Accepts both v1 (with people[]) and legacy (notes-only) export files */
@@ -64,6 +93,7 @@ export interface ImportPayload {
     note: string
     timestamp: string
   }>
+  attachments?: Array<Pick<Attachment, 'id' | 'noteId' | 'filename' | 'mimeType' | 'sizeBytes' | 'createdAt'> & { data?: string }>
 }
 
 export interface ImportResult {

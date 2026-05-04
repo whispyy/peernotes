@@ -183,4 +183,21 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 8')
   }
+
+  if (version < 9) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS note_attachments (
+          id         TEXT PRIMARY KEY,
+          note_id    TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+          filename   TEXT NOT NULL,
+          mime_type  TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_attachments_note ON note_attachments(note_id);
+      `)
+    })()
+    db.pragma('user_version = 9')
+  }
 }

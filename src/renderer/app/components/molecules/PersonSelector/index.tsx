@@ -13,6 +13,8 @@ interface Props {
 
 const Wrapper = styled.div`
   position: relative;
+  flex: 1;
+  min-width: 0;
 `
 
 const SearchInput = styled(Input)`

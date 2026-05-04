@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import styled, { createGlobalStyle } from 'styled-components'
 import type { Person, Sentiment, Workspace } from '@shared/types'
-import { NOTE_MAX_LENGTH } from '@shared/types'
+import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
 import { PersonSelector } from '../app/components/molecules/PersonSelector'
-import { SentimentPicker } from '../app/components/molecules/SentimentPicker'
+import { SentimentPicker, PersonSentimentRow } from '../app/components/molecules/SentimentPicker'
 import { Button } from '../app/components/atoms/Button'
 import { TextArea } from '../app/components/atoms/TextArea'
 
@@ -121,6 +121,69 @@ const CharCount = styled.span<{ $warn: boolean }>`
   color: ${({ $warn, theme }) => ($warn ? theme.colors.danger : theme.colors.text.muted)};
 `
 
+// ── Image attachments ─────────────────────────────────────────────────────────
+
+const ImageSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing['1.5']};
+  -webkit-app-region: no-drag;
+`
+
+const ImageRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['1.5']};
+`
+
+const ThumbWrap = styled.div`
+  position: relative;
+  flex-shrink: 0;
+`
+
+const Thumb = styled.img`
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  display: block;
+`
+
+const RemoveThumb = styled.button`
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.colors.danger};
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
+
+const AddImageBtn = styled.button`
+  background: none;
+  border: 1px dashed ${({ theme }) => theme.colors.border.default};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+  cursor: pointer;
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  padding: ${({ theme }) => theme.spacing['1']} ${({ theme }) => theme.spacing['2']};
+  transition: color 0.12s, border-color 0.12s;
+  &:hover {
+    color: ${({ theme }) => theme.colors.text.primary};
+    border-color: ${({ theme }) => theme.colors.border.default};
+  }
+  &:disabled { opacity: 0.4; cursor: default; }
+`
+
 // ── Workspace picker ──────────────────────────────────────────────────────────
 
 const WorkspaceWrapper = styled.div`
@@ -197,6 +260,11 @@ const WorkspaceOption = styled.button<{ $active: boolean }>`
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+interface StagedImage {
+  path: string
+  src: string
+}
+
 export function QuickEntryApp() {
   const [people, setPeople] = useState<Person[]>([])
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
@@ -204,6 +272,7 @@ export function QuickEntryApp() {
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [stagedImages, setStagedImages] = useState<StagedImage[]>([])
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null)
@@ -263,20 +332,41 @@ export function QuickEntryApp() {
     if (id === activeWorkspaceId) return
     await window.api.workspace.setActive(id)
     setSelectedPerson(null)
-    // loadWorkspaces + loadPeople fire automatically via workspace:changed
   }, [activeWorkspaceId])
+
+  const handlePickImages = useCallback(async () => {
+    const paths = await window.api.attachments.pick()
+    if (!paths) return
+    const available = MAX_ATTACHMENTS_PER_NOTE - stagedImages.length
+    const toAdd = paths.slice(0, available)
+    setStagedImages((prev) => [
+      ...prev,
+      ...toAdd.map((p) => ({ path: p, src: `attachment://${p}` }))
+    ])
+  }, [stagedImages.length])
+
+  const handleRemoveStaged = useCallback((index: number) => {
+    setStagedImages((prev) => prev.filter((_, i) => i !== index))
+  }, [])
 
   const handleSave = useCallback(async () => {
     if (!selectedPerson || !note.trim()) return
     setSaving(true)
     try {
-      await window.api.notes.add({ personId: selectedPerson.id, sentiment, note: note.trim() })
+      const created = await window.api.notes.add({
+        personId: selectedPerson.id,
+        sentiment,
+        note: note.trim()
+      })
+      for (const img of stagedImages) {
+        try { await window.api.attachments.add(created.id, img.path) } catch { /* skip */ }
+      }
       setSaved(true)
       setTimeout(() => window.close(), 600)
     } catch {
       setSaving(false)
     }
-  }, [selectedPerson, sentiment, note])
+  }, [selectedPerson, sentiment, note, stagedImages])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
@@ -326,14 +416,15 @@ export function QuickEntryApp() {
             <CloseBtn onClick={() => { if (!saving) window.close() }}>×</CloseBtn>
           </Header>
 
-          <PersonSelector
-            people={people}
-            value={selectedPerson}
-            onChange={setSelectedPerson}
-            autoFocus
-          />
-
-          <SentimentPicker value={sentiment} onChange={setSentiment} />
+          <PersonSentimentRow>
+            <PersonSelector
+              people={people}
+              value={selectedPerson}
+              onChange={setSelectedPerson}
+              autoFocus
+            />
+            <SentimentPicker value={sentiment} onChange={setSentiment} compact />
+          </PersonSentimentRow>
 
           <StyledTextArea
             placeholder="What happened…"
@@ -341,6 +432,29 @@ export function QuickEntryApp() {
             onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
             rows={4}
           />
+
+          <ImageSection>
+            {stagedImages.length > 0 && (
+              <ImageRow>
+                {stagedImages.map((img, i) => (
+                  <ThumbWrap key={img.path + i}>
+                    <Thumb src={img.src} alt="staged" />
+                    <RemoveThumb onClick={() => handleRemoveStaged(i)}>×</RemoveThumb>
+                  </ThumbWrap>
+                ))}
+              </ImageRow>
+            )}
+            <div>
+              <AddImageBtn
+                type="button"
+                onClick={handlePickImages}
+                disabled={saving || stagedImages.length >= MAX_ATTACHMENTS_PER_NOTE}
+                title={stagedImages.length >= MAX_ATTACHMENTS_PER_NOTE ? `Maximum ${MAX_ATTACHMENTS_PER_NOTE} images` : 'Add image'}
+              >
+                + Add image{stagedImages.length > 0 ? ` (${stagedImages.length}/${MAX_ATTACHMENTS_PER_NOTE})` : ''}
+              </AddImageBtn>
+            </div>
+          </ImageSection>
 
           <Footer>
             <Hint>{saved ? '✓ Saved' : '⌘↵ to save · Esc to close'}</Hint>

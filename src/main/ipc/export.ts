@@ -1,7 +1,8 @@
 import { ipcMain, dialog } from 'electron'
 import * as fs from 'fs'
 import { getDb } from '../store/db'
-import type { Person, Note, ExportNote, ExportResult } from '@shared/types'
+import { getLocalPath } from './attachments'
+import type { Person, Note, ExportNote, Attachment, ExportAttachment, ExportResultV2 } from '@shared/types'
 
 interface ExportPayload {
   workspaceId: string
@@ -9,7 +10,12 @@ interface ExportPayload {
   to?: string
 }
 
-export function buildExport(workspaceId: string, from?: string, to?: string): ExportResult {
+export function buildExport(
+  workspaceId: string,
+  from?: string,
+  to?: string,
+  includeAttachmentData = false
+): ExportResultV2 {
   const db = getDb()
 
   let notes = db
@@ -45,22 +51,45 @@ export function buildExport(workspaceId: string, from?: string, to?: string): Ex
     timestamp: n.timestamp
   }))
 
+  const noteIds = notes.map((n) => n.id)
+  let attachments: ExportAttachment[] = []
+  if (noteIds.length > 0) {
+    const placeholders = noteIds.map(() => '?').join(',')
+    const rows = db
+      .prepare(
+        `SELECT id, note_id AS noteId, filename, mime_type AS mimeType, size_bytes AS sizeBytes, created_at AS createdAt
+         FROM note_attachments WHERE note_id IN (${placeholders}) ORDER BY created_at ASC`
+      )
+      .all(...noteIds) as Attachment[]
+    attachments = rows.map((att) => {
+      let data = ''
+      if (includeAttachmentData) {
+        const filePath = getLocalPath(att.id, att.mimeType)
+        if (fs.existsSync(filePath)) {
+          data = fs.readFileSync(filePath).toString('base64')
+        }
+      }
+      return { ...att, data }
+    })
+  }
+
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     from: from ?? null,
     to: to ?? null,
     total: notes.length,
     people,
-    notes: exportNotes
+    notes: exportNotes,
+    attachments,
   }
 }
 
 export function registerExportHandlers(): void {
-  ipcMain.handle('notes:export', (_e, { workspaceId, from, to }: ExportPayload): ExportResult => {
+  ipcMain.handle('notes:export', (_e, { workspaceId, from, to }: ExportPayload): ExportResultV2 => {
     if (from && isNaN(Date.parse(from))) throw new Error('Invalid from date')
     if (to && isNaN(Date.parse(to))) throw new Error('Invalid to date')
-    return buildExport(workspaceId, from, to)
+    return buildExport(workspaceId, from, to, true)
   })
 
   ipcMain.handle(

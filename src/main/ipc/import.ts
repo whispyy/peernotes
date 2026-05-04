@@ -1,11 +1,12 @@
 import { ipcMain, dialog } from 'electron'
-import { readFileSync } from 'fs'
+import * as fs from 'fs'
 import { basename } from 'path'
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../store/db'
 import { notifyMainWindow } from '../windows'
 import { VALID_SENTIMENTS, NOTE_MAX_LENGTH } from '@shared/types'
 import type { ImportPayload, ImportResult } from '@shared/types'
+import { getLocalPath, isValidAttachmentId, isValidMimeType } from './attachments'
 
 export function performImport(payload: ImportPayload, workspaceId: string): ImportResult {
   if (!payload || !Array.isArray(payload.notes)) {
@@ -16,6 +17,9 @@ export function performImport(payload: ImportPayload, workspaceId: string): Impo
   let imported = 0
   let skipped = 0
   let peopleCreated = 0
+
+  // Collect file writes to perform after the transaction commits
+  const filesToWrite: Array<{ path: string; data: string }> = []
 
   const run = db.transaction(() => {
     // Build a case-insensitive name→id map scoped to this workspace
@@ -78,9 +82,46 @@ export function performImport(payload: ImportPayload, workspaceId: string): Impo
       )
       imported++
     }
+
+    // Import attachments — only when base64 data is present (GitHub exports).
+    // iCloud exports have no data; those are handled entirely by doICloudPull.
+    if (Array.isArray(payload.attachments)) {
+      const insertAtt = db.prepare(
+        `INSERT OR IGNORE INTO note_attachments (id, note_id, filename, mime_type, size_bytes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      const checkNote = db.prepare('SELECT id FROM notes WHERE id = ?')
+      for (const att of payload.attachments) {
+        if (!att.data) continue  // skip rows with no file data — avoids dangling DB records
+        if (!att.id || !att.noteId || !att.filename || !att.mimeType) continue
+        if (!isValidAttachmentId(att.id) || !isValidMimeType(att.mimeType)) continue
+        if (!checkNote.get(att.noteId)) continue
+        insertAtt.run(
+          att.id,
+          att.noteId,
+          att.filename,
+          att.mimeType,
+          att.sizeBytes ?? 0,
+          att.createdAt ?? new Date().toISOString()
+        )
+        const localPath = getLocalPath(att.id, att.mimeType)
+        if (!fs.existsSync(localPath)) {
+          filesToWrite.push({ path: localPath, data: att.data })
+        }
+      }
+    }
   })
 
   run()
+
+  // Write files after the transaction has committed so a failed write
+  // cannot leave DB rows without matching files.
+  for (const { path: p, data } of filesToWrite) {
+    if (!fs.existsSync(p)) {
+      try { fs.writeFileSync(p, Buffer.from(data, 'base64')) } catch { /* skip on write error */ }
+    }
+  }
+
   return { imported, skipped, peopleCreated }
 }
 
@@ -92,7 +133,7 @@ export function registerImportHandlers(): void {
     })
     if (canceled || filePaths.length === 0) return null
     return {
-      content: readFileSync(filePaths[0], 'utf-8'),
+      content: fs.readFileSync(filePaths[0], 'utf-8'),
       name: basename(filePaths[0])
     }
   })

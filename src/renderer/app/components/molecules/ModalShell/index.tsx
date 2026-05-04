@@ -21,10 +21,10 @@ export const Card = styled.div`
   background: ${({ theme }) => theme.colors.bg.secondary};
   border: 1px solid ${({ theme }) => theme.colors.border.default};
   border-radius: ${({ theme }) => theme.radius.xl};
-  padding: ${({ theme }) => theme.spacing['6']};
+  padding: ${({ theme }) => theme.spacing['5']};
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing['5']};
+  gap: ${({ theme }) => theme.spacing['4']};
   animation: ${slideUp} 0.18s ease;
   box-shadow: 0 24px 48px rgba(0,0,0,0.5);
 `

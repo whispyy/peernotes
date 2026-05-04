@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResult, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment } from '@shared/types'
 
 declare global {
   interface Window {
@@ -7,8 +7,15 @@ declare global {
         reset: (workspaceId: string) => Promise<void>
       }
       export: {
-        run: (payload: { workspaceId: string; from?: string; to?: string }) => Promise<ExportResult>
+        run: (payload: { workspaceId: string; from?: string; to?: string }) => Promise<ExportResultV2>
         saveFile: (content: string, filename: string) => Promise<boolean>
+      }
+      attachments: {
+        list: (noteId: string) => Promise<Attachment[]>
+        pick: () => Promise<string[] | null>
+        add: (noteId: string, sourcePath: string) => Promise<Attachment>
+        remove: (id: string) => Promise<void>
+        getPath: (id: string) => Promise<string | null>
       }
       import: {
         openFile: () => Promise<{ content: string; name: string } | null>

@@ -1,0 +1,61 @@
+src/main/store/db.ts
+  fed0ce82db741d61 186-202
+src/main/ipc/import.ts
+  fed0ce82db741d61 2,9,21-23,85-92,94-97,99-112,116-124,136
+  10e2a790884f53f3 93,98
+src/main/index.ts
+  fed0ce82db741d61 1,13,62-73,85
+src/main/ipc/notes.ts
+  fed0ce82db741d61 7,147-152
+src/renderer/app/globals.d.ts
+  fed0ce82db741d61 1,10,13-18
+src/renderer/app/components/organisms/AddNoteModal/index.tsx
+  fed0ce82db741d61 3-4,15,57-128,139-142,149-183,192,195,197-206,214,254-282
+src/main/ipc/icloud-sync.ts
+  fed0ce82db741d61 10-11,21-22,70-71,73-85,100-129
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  fed0ce82db741d61 1,4,108-145,174-211,213-242,244-262,264
+src/shared/types.ts
+  fed0ce82db741d61 31,54-81,96
+src/main/ipc/attachments.ts
+  fed0ce82db741d61 1-195
+src/main/ipc/sync.ts
+  fed0ce82db741d61 179-180,186-200,202,205-206,216-217
+src/main/ipc/export.ts
+  fed0ce82db741d61 4-5,13-18,54-75,77,83-84,89,92
+src/preload/index.ts
+  fed0ce82db741d61 2,88-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "af06c7a715fe14538f2b259d6e28901631d7d69f",
+  "prompts": {
+    "10e2a790884f53f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "730330c8-4c30-4495-a06e-2ca124472e53",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "fed0ce82db741d61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1150ff0e-6b66-4a6d-9013-68606f0fa01c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand",
+      "messages": [],
+      "total_additions": 821,
+      "total_deletions": 157,
+      "accepted_lines": 716,
+      "overriden_lines": 0
+    }
+  }
+}

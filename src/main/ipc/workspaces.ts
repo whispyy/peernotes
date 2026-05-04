@@ -4,8 +4,6 @@ import { getDb } from '../store/db'
 import { notifyWorkspaceChanged } from '../windows'
 import type { Workspace } from '@shared/types'
 
-// Tracks the currently active workspace ID in-memory so the quick-entry
-// overlay can pick it up without needing the renderer to pass it over.
 let activeWorkspaceId: string | null = null
 
 export function getActiveWorkspaceId(): string | null {
@@ -13,6 +11,12 @@ export function getActiveWorkspaceId(): string | null {
 }
 
 export function registerWorkspaceHandlers(): void {
+  const db = getDb()
+  const stored = db
+    .prepare("SELECT value FROM app_settings WHERE key = 'active_workspace_id'")
+    .get() as { value: string } | undefined
+  if (stored) activeWorkspaceId = stored.value
+
   ipcMain.handle('workspace:list', (): Workspace[] => {
     return getDb()
       .prepare('SELECT id, name, created_at AS createdAt FROM workspaces ORDER BY created_at ASC')
@@ -50,13 +54,19 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle('workspace:remove', (_e, id: string): void => {
     if (!id) return
     getDb().prepare('DELETE FROM workspaces WHERE id = ?').run(id)
-    if (activeWorkspaceId === id) activeWorkspaceId = null
+    if (activeWorkspaceId === id) {
+      activeWorkspaceId = null
+      getDb().prepare("DELETE FROM app_settings WHERE key = 'active_workspace_id'").run()
+    }
   })
 
   ipcMain.handle('workspace:getActive', (): string | null => activeWorkspaceId)
 
   ipcMain.handle('workspace:setActive', (_e, id: string): void => {
     activeWorkspaceId = id
+    getDb()
+      .prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('active_workspace_id', ?)")
+      .run(id)
     notifyWorkspaceChanged()
   })
 }

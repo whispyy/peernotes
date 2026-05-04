@@ -1,0 +1,23 @@
+src/main/ipc/workspaces.ts
+  6422de66287e690d 14-19,57-60,67-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6e52012257e1fbd734fd3ebdaf4ec67c49d6174a",
+  "prompts": {
+    "6422de66287e690d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "14191492-243d-412b-8e34-cb9056795f4f",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 3,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}

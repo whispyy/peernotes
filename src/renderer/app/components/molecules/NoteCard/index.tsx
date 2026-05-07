@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import { SENTIMENT_LABELS } from '@shared/types'
 import type { Note, Person, Attachment } from '@shared/types'
@@ -68,14 +68,17 @@ const Mark = styled.mark`
   padding: 0 1px;
 `
 
-const Actions = styled.div`
+const Actions = styled.div<{ $visible?: boolean }>`
   display: flex;
+  align-items: center;
   gap: ${({ theme }) => theme.spacing['0.5']};
-  align-self: flex-start;
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  max-width: ${({ $visible }) => ($visible ? '160px' : '0')};
+  overflow: hidden;
+  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+  transition: max-width 0.15s ease, opacity 0.12s ease;
 
   ${Card}:hover & {
+    max-width: 160px;
     opacity: 1;
   }
 `
@@ -103,6 +106,45 @@ const DeleteBtn = styled(ActionBtn)`
   &:hover {
     color: ${({ theme }) => theme.colors.danger};
   }
+`
+
+const ConfirmRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['1']};
+`
+
+const ConfirmLabel = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.danger};
+  white-space: nowrap;
+  line-height: 1;
+`
+
+const confirmBtnBase = `
+  border-radius: 4px;
+  padding: 0 8px;
+  height: 22px;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+`
+
+const ConfirmYes = styled.button`
+  ${confirmBtnBase}
+  background: ${({ theme }) => theme.colors.danger};
+  color: #fff;
+  border: none;
+`
+
+const ConfirmNo = styled.button`
+  ${confirmBtnBase}
+  background: none;
+  border: 1px solid ${({ theme }) => theme.colors.border.default};
+  color: ${({ theme }) => theme.colors.text.muted};
 `
 
 const ThumbnailStrip = styled.div`
@@ -174,6 +216,8 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [thumbPaths, setThumbPaths] = useState<Record<string, string>>({})
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const confirmRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     window.api.attachments.list(note.id).then(setAttachments)
@@ -201,6 +245,17 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
   const closeLightbox = useCallback(() => setLightboxSrc(null), [])
 
   useEffect(() => {
+    if (!confirming) return
+    function handleClickOutside(e: MouseEvent) {
+      if (confirmRef.current && !confirmRef.current.contains(e.target as Node)) {
+        setConfirming(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [confirming])
+
+  useEffect(() => {
     if (!lightboxSrc) return
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') closeLightbox()
@@ -222,6 +277,30 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
             )}
             <Badge $sentiment={note.sentiment}>{SENTIMENT_LABELS[note.sentiment]}</Badge>
             <Timestamp>{formatDate(note.timestamp)}</Timestamp>
+            {showActions && (
+              <Actions $visible={confirming}>
+                {confirming ? (
+                  <ConfirmRow ref={confirmRef}>
+                    <ConfirmLabel>Delete?</ConfirmLabel>
+                    <ConfirmYes onClick={() => { setConfirming(false); onDelete!(note.id) }}>Yes</ConfirmYes>
+                    <ConfirmNo onClick={() => setConfirming(false)}>No</ConfirmNo>
+                  </ConfirmRow>
+                ) : (
+                  <>
+                    {onEdit && (
+                      <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
+                    )}
+                    {onDelete && (
+                      <DeleteBtn onClick={() => setConfirming(true)} title="Delete">
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1.75 3.5h10.5M4.667 3.5V2.333a.583.583 0 0 1 .583-.583h3.5a.583.583 0 0 1 .583.583V3.5m1.75 0v7.583a.583.583 0 0 1-.583.584H3.5a.583.583 0 0 1-.583-.584V3.5h8.166Z" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </DeleteBtn>
+                    )}
+                  </>
+                )}
+              </Actions>
+            )}
           </Meta>
           <NoteText>
             <Highlighted text={note.note} query={highlight} />
@@ -242,16 +321,6 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
             </ThumbnailStrip>
           )}
         </Body>
-        {showActions && (
-          <Actions>
-            {onEdit && (
-              <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
-            )}
-            {onDelete && (
-              <DeleteBtn onClick={() => onDelete(note.id)} title="Delete">×</DeleteBtn>
-            )}
-          </Actions>
-        )}
       </Card>
       {lightboxSrc && (
         <LightboxOverlay onClick={closeLightbox}>

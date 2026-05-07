@@ -1,0 +1,88 @@
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  fed0ce82db741d61 1,4,108-145,174-211,213-242,244-262,264
+src/renderer/quick-entry/QuickEntryApp.tsx
+  s_fed0ce82db741d::t_0a43855f642a07 126-132
+  s_fed0ce82db741d::t_d9e9b4f5dc4806 419-427
+  s_fed0ce82db741d::t_e1ba1b806ab1d0 6
+  s_fed0ce82db741d::t_fc9e10e3490a12 4,124-125,133-171,173-176,180-183,185-186,263-267,275,337-351,356-363,369
+  s_fed0ce82db741d::t_c6c5b020c2aa46 436-457
+  s_fed0ce82db741d::t_6d84a53d828fea 172,177-179,184
+src/main/ipc/attachments.ts
+  fed0ce82db741d61 1-195
+src/main/index.ts
+  fed0ce82db741d61 1,13,62-73,85
+src/shared/types.ts
+  fed0ce82db741d61 31,54-81,96
+src/renderer/app/components/molecules/ModalShell/index.tsx
+  s_fed0ce82db741d::t_f4993129ab98d2 24,27
+src/main/store/db.ts
+  fed0ce82db741d61 186-202
+src/renderer/app/components/molecules/SentimentPicker/index.tsx
+  s_fed0ce82db741d::t_04798b10a0c04d 8,13-23,81-120,122-148
+  s_fed0ce82db741d::t_df4c8758caf5d7 121
+src/main/ipc/notes.ts
+  fed0ce82db741d61 7,147-152
+src/preload/index.ts
+  fed0ce82db741d61 2,88-99
+src/renderer/app/components/organisms/AddNoteModal/index.tsx
+  s_fed0ce82db741d::t_b9891e44ac2e1f 42
+  fed0ce82db741d61 3-4,15,58-129,140-143,150-184,193,196,198-207,215,256-284
+  s_fed0ce82db741d::t_8b647306e995a6 232-247
+  s_fed0ce82db741d::t_67408fc1c9d8fd 9
+  s_fed0ce82db741d::t_9a066ea4a4be97 26
+  s_fed0ce82db741d::t_233d1cb0cbd657 253
+src/main/ipc/sync.ts
+  fed0ce82db741d61 179-180,186-200,202,205-206,216-217
+src/main/ipc/import.ts
+  fed0ce82db741d61 2,9,21-23,85-92,94-97,99-112,116-124,136
+  10e2a790884f53f3 93,98
+src/renderer/app/globals.d.ts
+  fed0ce82db741d61 1,10,13-18
+src/renderer/app/components/molecules/PersonSelector/index.tsx
+  s_fed0ce82db741d::t_70972538c8ccf4 16-17
+src/main/ipc/export.ts
+  fed0ce82db741d61 4-5,13-18,54-75,77,83-84,89,92
+src/main/ipc/icloud-sync.ts
+  fed0ce82db741d61 10-11,21-22,70-71,73-85,100-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "55b004e38be539f2fe97c97badcf205b38f4f828",
+  "prompts": {
+    "10e2a790884f53f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "730330c8-4c30-4495-a06e-2ca124472e53",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null,
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "fed0ce82db741d61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1150ff0e-6b66-4a6d-9013-68606f0fa01c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand",
+      "total_additions": 821,
+      "total_deletions": 157,
+      "accepted_lines": 716,
+      "overriden_lines": 0
+    }
+  },
+  "sessions": {
+    "s_fed0ce82db741d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1150ff0e-6b66-4a6d-9013-68606f0fa01c",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": null
+    }
+  }
+}

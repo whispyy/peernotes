@@ -1,0 +1,27 @@
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  s_3276e330aa6c1c::t_1f5e84df97df21 111-120,122-123,136,138-143,145-149
+  s_3276e330aa6c1c::t_00b003c059a8f1 73
+  s_3276e330aa6c1c::t_1dea13b9759751 75-76,78,81
+  s_3276e330aa6c1c::t_01beccf206a13e 219-220
+  s_3276e330aa6c1c::t_33fdcfc111472e 1
+  s_3276e330aa6c1c::t_ea94476d7c9ef0 121,124-135,137,144
+  s_3276e330aa6c1c::t_d3c445651ce0cd 71,77
+  s_3276e330aa6c1c::t_b02a2bb6d1818a 280-303
+  s_3276e330aa6c1c::t_fa25a2d958c4b5 248-257
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "cac78216b7188470b381e729938f65f7e4b5f2ce",
+  "prompts": {},
+  "sessions": {
+    "s_3276e330aa6c1c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4595c91f-7b81-4025-862b-7200267ee6cf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

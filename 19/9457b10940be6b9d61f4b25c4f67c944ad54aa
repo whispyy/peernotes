@@ -1,0 +1,20 @@
+build/icon.svg
+  s_9094dcc15bb543::t_a17132a1c85ec6 10
+  s_9094dcc15bb543::t_71f8f8d496fa34 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "199457b10940be6b9d61f4b25c4f67c944ad54aa",
+  "prompts": {},
+  "sessions": {
+    "s_9094dcc15bb543": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7be9abb5-39fa-45bd-9e31-9b74ffe31027",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+.gitignore
+  s_66f35add4f5259::t_1c17b21ab45ced 7
+.github/workflows/release.yml
+  s_66f35add4f5259::t_b11a6defbea905 47,75-78,80-81
+  s_66f35add4f5259::t_40c6d812e356d5 12-15,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "a68bc0a826a84eecc9f9dab30f8ee293f69704a0",
+  "prompts": {},
+  "sessions": {
+    "s_66f35add4f5259": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf7acd91-277d-4bcd-97e4-55c857ed1643",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

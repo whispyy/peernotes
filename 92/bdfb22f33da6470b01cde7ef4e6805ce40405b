@@ -1,0 +1,19 @@
+src/main/windows.ts
+  s_b423df72e9964a::t_a5ad8392287ad3 59-60,63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "92bdfb22f33da6470b01cde7ef4e6805ce40405b",
+  "prompts": {},
+  "sessions": {
+    "s_b423df72e9964a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f7cbe4b-806f-4452-9990-5ffae3f3eb1d",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

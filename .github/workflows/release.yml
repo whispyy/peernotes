@@ -9,17 +9,42 @@ permissions:
   contents: write
 
 jobs:
-  changelog:
-    name: Update Changelog
-    runs-on: ubuntu-latest
+  build:
+    name: Build
+    runs-on: macos-14   # Apple Silicon — cross-compiles x64 via macOS toolchain
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
 
-      - name: Generate changelog entry
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate icons
+        run: npm run icons
+
+      - name: Package arm64
+        run: |
+          npx electron-rebuild -f -a arm64 -w better-sqlite3
+          npx electron-builder --mac --arm64 --publish never
+
+      - name: Package x64
+        run: |
+          npx electron-rebuild -f -a x64 -w better-sqlite3
+          npx electron-builder --mac --x64 --publish never
+
+      - name: Generate release notes
         run: |
           NEW_TAG=${GITHUB_REF#refs/tags/}
           PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${NEW_TAG}$" | head -1)
@@ -47,63 +72,20 @@ jobs:
             fi
           done <<< "$COMMITS"
 
-          ENTRY="## ${NEW_TAG}"$'\n\n'
-          [ -n "$FEAT_LIST" ] && ENTRY+="### Features"$'\n'"${FEAT_LIST}"$'\n'
-          [ -n "$FIX_LIST" ] && ENTRY+="### Bug Fixes"$'\n'"${FIX_LIST}"$'\n'
-          [ -n "$OTHER_LIST" ] && ENTRY+="### Other"$'\n'"${OTHER_LIST}"$'\n'
+          NOTES=""
+          [ -n "$FEAT_LIST" ] && NOTES+="### Features"$'\n'"${FEAT_LIST}"$'\n'
+          [ -n "$FIX_LIST" ] && NOTES+="### Bug Fixes"$'\n'"${FIX_LIST}"$'\n'
+          [ -n "$OTHER_LIST" ] && NOTES+="### Other"$'\n'"${OTHER_LIST}"$'\n'
 
-          if [ -f CHANGELOG.md ]; then
-            printf '%s\n%s' "$ENTRY" "$(cat CHANGELOG.md)" > CHANGELOG.md
-          else
-            printf '%s' "$ENTRY" > CHANGELOG.md
-          fi
-
-      - name: Commit changelog
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore: update CHANGELOG for ${GITHUB_REF#refs/tags/}"
-          git push origin main
-
-  build:
-    name: Build
-    runs-on: macos-14   # Apple Silicon — cross-compiles x64 via macOS toolchain
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Generate icons
-        run: npm run icons
-
-      - name: Package arm64
-        run: |
-          npx electron-rebuild -f -a arm64 -w better-sqlite3
-          npx electron-builder --mac --arm64 --publish never
-
-      - name: Package x64
-        run: |
-          npx electron-rebuild -f -a x64 -w better-sqlite3
-          npx electron-builder --mac --x64 --publish never
+          [ -z "$NOTES" ] && NOTES="No release notes generated."
+          printf '%s' "$NOTES" > release_notes.md
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
+          body_path: release_notes.md
           files: dist/*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

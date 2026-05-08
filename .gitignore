@@ -4,3 +4,4 @@ dist/
 data/data.json
 .tsbuildinfo/
 build/icon.png
+release_notes.md

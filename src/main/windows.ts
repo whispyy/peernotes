@@ -56,9 +56,11 @@ export function createQuickEntryWindow(): BrowserWindow {
   quickEntryWindow = new BrowserWindow({
     width: winWidth,
     height: winHeight,
+    minWidth: winWidth,
+    minHeight: winHeight,
     x: cx,
     y: cy,
-    resizable: false,
+    resizable: true,
     frame: false,
     transparent: true,
     roundedCorners: true,

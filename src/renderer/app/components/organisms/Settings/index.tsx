@@ -615,7 +615,7 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
     setPushState('loading'); setPushMsg('')
     try {
       const r = await window.api.sync.push(workspaceId)
-      setPushState('done'); setPushMsg(`${r.total} notes pushed`)
+      setPushState('done'); setPushMsg(r.skipped ? 'Already up to date' : `${r.total} notes pushed`)
       setSyncSettings(s => ({ ...s, lastSyncedAt: Date.now(), lastSyncError: null }))
     } catch (err) {
       setPushState('error'); setPushMsg(err instanceof Error ? err.message : 'Push failed')

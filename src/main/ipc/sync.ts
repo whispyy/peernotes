@@ -181,7 +181,7 @@ const GITHUB_SIZE_GUARD_BYTES = 900_000
 async function doPush(
   workspaceId: string,
   s: SyncSettings,
-): Promise<{ total: number }> {
+): Promise<{ total: number; skipped: boolean }> {
   if (!s.githubToken || !s.repo) throw new Error('Sync not configured — set token and repository')
   const filePath = effectivePath(s.filePath, getWorkspaceName(workspaceId))
   const exportData = buildExport(workspaceId, undefined, undefined, true)
@@ -198,6 +198,20 @@ async function doPush(
   }
 
   const existing = await ghGet(s.githubToken, s.repo, s.branch, filePath)
+
+  if (existing?.content) {
+    try {
+      const remoteRaw = Buffer.from(existing.content.replace(/\n/g, ''), 'base64').toString('utf-8')
+      const remoteObj = JSON.parse(remoteRaw) as Record<string, unknown>
+      const localObj = JSON.parse(content) as Record<string, unknown>
+      delete remoteObj.exportedAt
+      delete localObj.exportedAt
+      if (JSON.stringify(remoteObj) === JSON.stringify(localObj)) return { total: exportData.total, skipped: true }
+    } catch {
+      // fall through to push if comparison fails
+    }
+  }
+
   try {
     await ghPut(s.githubToken, s.repo, s.branch, filePath, content, existing?.sha ?? null)
   } catch (err) {
@@ -205,7 +219,7 @@ async function doPush(
     const fresh = await ghGet(s.githubToken, s.repo, s.branch, filePath)
     await ghPut(s.githubToken, s.repo, s.branch, filePath, content, fresh?.sha ?? null)
   }
-  return { total: exportData.total }
+  return { total: exportData.total, skipped: false }
 }
 
 async function doPull(
@@ -333,7 +347,7 @@ export function registerSyncHandlers(): void {
     notifySyncUpdated()
   })
 
-  ipcMain.handle('sync:push', async (_e, workspaceId: string): Promise<{ total: number }> => {
+  ipcMain.handle('sync:push', async (_e, workspaceId: string): Promise<{ total: number; skipped: boolean }> => {
     const s = readSettings()
     try {
       const result = await doPush(workspaceId, s)

@@ -1,0 +1,24 @@
+src/main/ipc/sync.ts
+  s_2c7df4f11aaedf::t_bc0f24893150df 201-202,213-214,222
+  s_2c7df4f11aaedf::t_9140c557e29ea8 350
+  s_2c7df4f11aaedf::t_4d308a5684ecda 184
+  s_2c7df4f11aaedf::t_1127d3c228d48b 203-212
+src/renderer/app/components/organisms/Settings/index.tsx
+  s_2c7df4f11aaedf::t_4a5f59604f6c2e 618
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "ee974d1c5bac899114e875caedb6d07a2ea59496",
+  "prompts": {},
+  "sessions": {
+    "s_2c7df4f11aaedf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bf4f48a-38f7-46e9-a00a-c87068d05dc4",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, memo, Fragment, isValidElement, cloneElement, type ReactNode } from 'react'
 import styled from 'styled-components'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { SENTIMENT_LABELS } from '@shared/types'
 import type { Note, Person, Attachment } from '@shared/types'
 import { Badge } from '../../atoms/Badge'
@@ -52,13 +54,93 @@ const Timestamp = styled.span`
   margin-left: auto;
 `
 
-const NoteText = styled.p`
-  margin: 0;
+const MarkdownWrapper = styled.div`
   font-size: ${({ theme }) => theme.typography.size.base};
   color: ${({ theme }) => theme.colors.text.secondary};
   line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
-  white-space: pre-wrap;
   word-break: break-word;
+
+  > *:first-child { margin-top: 0; }
+  > *:last-child { margin-bottom: 0; }
+
+  p { margin: 0 0 ${({ theme }) => theme.spacing['2']}; }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: ${({ theme }) => theme.colors.text.primary};
+    font-weight: ${({ theme }) => theme.typography.weight.semibold};
+    line-height: ${({ theme }) => theme.typography.lineHeight.tight};
+    margin: ${({ theme }) => theme.spacing['3']} 0 ${({ theme }) => theme.spacing['1']};
+  }
+  h1 { font-size: 1.2em; }
+  h2 { font-size: 1.1em; }
+  h3, h4, h5, h6 { font-size: 1em; }
+
+  strong { font-weight: ${({ theme }) => theme.typography.weight.semibold}; color: ${({ theme }) => theme.colors.text.primary}; }
+  em { font-style: italic; }
+  del { text-decoration: line-through; }
+
+  ul, ol {
+    margin: ${({ theme }) => theme.spacing['1']} 0;
+    padding-left: ${({ theme }) => theme.spacing['4']};
+  }
+  li { margin: 2px 0; }
+  li p { margin: 0; }
+
+  code {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 0.85em;
+    background: ${({ theme }) => theme.colors.bg.tertiary};
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    border-radius: ${({ theme }) => theme.radius.sm};
+    padding: 1px 5px;
+  }
+  pre {
+    background: ${({ theme }) => theme.colors.bg.tertiary};
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    border-radius: ${({ theme }) => theme.radius.sm};
+    padding: ${({ theme }) => theme.spacing['2']};
+    overflow-x: auto;
+    margin: ${({ theme }) => theme.spacing['2']} 0;
+    code { background: none; border: none; padding: 0; }
+  }
+
+  blockquote {
+    border-left: 3px solid ${({ theme }) => theme.colors.border.default};
+    margin: ${({ theme }) => theme.spacing['2']} 0;
+    padding-left: ${({ theme }) => theme.spacing['3']};
+    color: ${({ theme }) => theme.colors.text.muted};
+    p { margin: 0; }
+  }
+
+  a {
+    color: ${({ theme }) => theme.colors.accent};
+    text-decoration: underline;
+    cursor: pointer;
+    &:hover { opacity: 0.8; }
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    margin: ${({ theme }) => theme.spacing['3']} 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: ${({ theme }) => theme.spacing['2']} 0;
+    font-size: ${({ theme }) => theme.typography.size.sm};
+  }
+  th, td {
+    border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    padding: ${({ theme }) => theme.spacing['1']} ${({ theme }) => theme.spacing['2']};
+    text-align: left;
+  }
+  th {
+    color: ${({ theme }) => theme.colors.text.primary};
+    font-weight: ${({ theme }) => theme.typography.weight.semibold};
+    background: ${({ theme }) => theme.colors.bg.tertiary};
+  }
 `
 
 const Mark = styled.mark`
@@ -197,6 +279,39 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+function highlightNode(node: ReactNode, query: string): ReactNode {
+  if (!query.trim()) return node
+
+  if (typeof node === 'string') {
+    const parts = node.split(new RegExp(`(${escapeRegex(query)})`, 'gi'))
+    if (parts.length === 1) return node
+    return parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase()
+        ? <Mark key={i}>{part}</Mark>
+        : part
+    )
+  }
+
+  if (Array.isArray(node)) {
+    return (node as ReactNode[]).map((child, i) => {
+      const result = highlightNode(child, query)
+      if (result === child) return result
+      if (typeof child === 'string') return <Fragment key={i}>{result}</Fragment>
+      return result
+    })
+  }
+
+  if (isValidElement(node)) {
+    const { children } = node.props as { children?: ReactNode }
+    if (children == null) return node
+    const highlighted = highlightNode(children, query)
+    if (highlighted === children) return node
+    return cloneElement(node as React.ReactElement<{ children: ReactNode }>, { children: highlighted })
+  }
+
+  return node
+}
+
 function Highlighted({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
   const parts = text.split(new RegExp(`(${escapeRegex(query)})`, 'gi'))
@@ -210,6 +325,38 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     </>
   )
 }
+
+const MarkdownNote = memo(function MarkdownNote({ text, query }: { text: string; query: string }) {
+  const components = useMemo(() => ({
+    p: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <p>{highlightNode(children, query)}</p>,
+    h1: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h1>{highlightNode(children, query)}</h1>,
+    h2: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h2>{highlightNode(children, query)}</h2>,
+    h3: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h3>{highlightNode(children, query)}</h3>,
+    h4: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h4>{highlightNode(children, query)}</h4>,
+    h5: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h5>{highlightNode(children, query)}</h5>,
+    h6: ({ children }: { children?: ReactNode; node?: unknown }) =>
+      <h6>{highlightNode(children, query)}</h6>,
+    a: ({ href, children }: { href?: string; children?: ReactNode; node?: unknown }) => (
+      <a href={href} onClick={(e) => { e.preventDefault(); if (href) window.open(href) }}>
+        {highlightNode(children, query)}
+      </a>
+    ),
+  }), [query])
+
+  return (
+    <MarkdownWrapper>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components as never}>
+        {text}
+      </ReactMarkdown>
+    </MarkdownWrapper>
+  )
+})
 
 export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, highlight = '' }: Props) {
   const showActions = onEdit || onDelete
@@ -302,9 +449,7 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
               </Actions>
             )}
           </Meta>
-          <NoteText>
-            <Highlighted text={note.note} query={highlight} />
-          </NoteText>
+          <MarkdownNote text={note.note} query={highlight} />
           {attachments.length > 0 && (
             <ThumbnailStrip>
               {attachments.map((att) =>

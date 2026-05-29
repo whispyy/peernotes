@@ -161,7 +161,7 @@ const AddNoteBtn = styled.button`
 const Content = styled.main`
   flex: 1;
   overflow-y: auto;
-  padding: ${({ theme }) => theme.spacing['6']};
+  padding: 0 ${({ theme }) => theme.spacing['6']} ${({ theme }) => theme.spacing['6']};
 `
 
 export function App({ mode, setThemeMode }: Props) {

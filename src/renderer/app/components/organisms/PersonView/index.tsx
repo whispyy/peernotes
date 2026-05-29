@@ -27,6 +27,7 @@ const Layout = styled.div`
   grid-template-columns: 220px 1fr;
   gap: ${({ theme }) => theme.spacing['6']};
   height: 100%;
+  padding-top: ${({ theme }) => theme.spacing['6']};
 `
 
 const Sidebar = styled.div`

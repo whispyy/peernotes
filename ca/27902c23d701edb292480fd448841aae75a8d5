@@ -1,0 +1,29 @@
+src/renderer/app/App.tsx
+  s_fe396cb3491e17::t_da0b8d8c7b917a 164
+src/renderer/app/components/organisms/PeopleManager/index.tsx
+  s_fe396cb3491e17::t_65d86446d6a414 23
+src/renderer/app/components/molecules/MonthGroup/index.tsx
+  s_fe396cb3491e17::t_7c4aa4645759e3 29-32
+  s_fe396cb3491e17::t_1fd48cb82af53d 33
+  s_fe396cb3491e17::t_a0335715dec947 19
+src/renderer/app/components/organisms/PersonView/index.tsx
+  s_fe396cb3491e17::t_298b4cc835d606 30
+src/renderer/app/components/organisms/Settings/index.tsx
+  s_fe396cb3491e17::t_b58061a1ff958a 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ca27902c23d701edb292480fd448841aae75a8d5",
+  "prompts": {},
+  "sessions": {
+    "s_fe396cb3491e17": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "703aa2d9-4b91-47df-bbaf-3a11ea571ef0",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

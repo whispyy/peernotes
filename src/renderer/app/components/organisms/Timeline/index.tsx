@@ -18,7 +18,6 @@ interface Props {
 const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.spacing['8']};
 `
 
 const Empty = styled.div`

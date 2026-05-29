@@ -23,6 +23,7 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['8']};
+  padding-top: ${({ theme }) => theme.spacing['6']};
 `
 
 const Section = styled.div`

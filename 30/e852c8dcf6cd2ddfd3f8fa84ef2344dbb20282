@@ -1,0 +1,21 @@
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  s_c8cdf1c7a00ba9::t_086dd13c8286cf 278-296
+  s_c8cdf1c7a00ba9::t_193123da13c24f 504,506,511-512
+  s_c8cdf1c7a00ba9::t_cbc52d7e6847d4 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "30e852c8dcf6cd2ddfd3f8fa84ef2344dbb20282",
+  "prompts": {},
+  "sessions": {
+    "s_c8cdf1c7a00ba9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4d60ff98-b598-4afc-a415-fed82ae6cfc7",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

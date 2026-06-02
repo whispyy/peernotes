@@ -1,0 +1,55 @@
+src/renderer/app/components/organisms/PersonView/index.tsx
+  s_c72089f722ef21::t_05835513ff7d97 91-93
+  s_c72089f722ef21::t_3b57effbc19610 551-553
+  s_c72089f722ef21::t_874c88c5765967 233,238-261
+  s_99363f787096e1::t_a60e7eadacf744 606
+  s_c72089f722ef21::t_7af6f3a31b9103 4-5
+  s_99363f787096e1::t_59796e11deebb2 28
+  s_c72089f722ef21::t_3e26ce59687dec 106
+  s_99363f787096e1::t_6cd421805173ee 298
+src/renderer/app/App.tsx
+  s_99363f787096e1::t_624e97d51df877 318-324
+  s_99363f787096e1::t_c39953b2844791 266
+  s_99363f787096e1::t_3107ce41b2d579 172
+  s_99363f787096e1::t_2e91584e393e5d 281
+  s_99363f787096e1::t_d44eab0087e38e 13
+src/renderer/app/components/organisms/Timeline/index.tsx
+  s_99363f787096e1::t_e4c71e134beefb 20
+  s_99363f787096e1::t_3f930f12185814 145
+  s_99363f787096e1::t_e6f2395877af0e 58
+src/renderer/app/components/molecules/MonthGroup/index.tsx
+  s_99363f787096e1::t_3d8665afe58d81 12
+  s_99363f787096e1::t_e0532ec5aea846 37
+  s_99363f787096e1::t_4e0d70f063509a 52
+src/renderer/app/components/organisms/NoteExpandedModal/index.tsx
+  s_99363f787096e1::t_5d81a88a1464f0 1-218
+src/renderer/app/components/molecules/NoteCard/index.tsx
+  s_99363f787096e1::t_c1cafd419f9a4e 16
+  s_99363f787096e1::t_8631d8b03bdb6c 368-369
+  s_99363f787096e1::t_2e6c9098bca8d2 444-450
+  s_99363f787096e1::t_02e77e9699ed7e 187-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8f9c5026974db658fbd5bd409e2c5b74ef657062",
+  "prompts": {},
+  "sessions": {
+    "s_99363f787096e1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3bac3fdd-9ea1-42a5-a3a8-2bb6baa26cf3",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    },
+    "s_c72089f722ef21": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "99d7050d-bb01-4c23-91c1-87214f7ec9be",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

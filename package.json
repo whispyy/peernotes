@@ -13,6 +13,7 @@
     "package": "npm run icons && electron-vite build && electron-builder"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.1",
     "better-sqlite3": "^12.9.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

@@ -1,0 +1,25 @@
+src/renderer/app/components/organisms/Timeline/index.tsx
+  s_97534cf1e011b2::t_693a39ec9984a1 6
+  s_97534cf1e011b2::t_49075c691402b3 62-64
+src/renderer/app/components/molecules/TimelineInsights/index.tsx
+  s_97534cf1e011b2::t_60c65e1561bf69 1
+  s_97534cf1e011b2::t_242fc283cbd972 2-16,18-117,120-140,142-145,147-150,152-158
+  s_97534cf1e011b2::t_83733a564e8da6 118-119,141,146,151
+  s_97534cf1e011b2::t_42271643fbd497 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "65c751c18fe5d2c7bdca62ac09b35a8d7a4b3a1e",
+  "prompts": {},
+  "sessions": {
+    "s_97534cf1e011b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ef6ca441-1fec-4813-a674-3c39f4264aa6",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

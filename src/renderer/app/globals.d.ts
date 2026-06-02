@@ -76,15 +76,6 @@ declare global {
           update: (payload: { id: string; name: string; systemPrompt: string }) => Promise<void>
           remove: (id: string) => Promise<void>
         }
-        summarize: (payload: {
-          personName: string
-          notes: Array<{ sentiment: string; note: string; timestamp: string }>
-          from: string
-          to: string
-          systemPrompt: string
-          apiKey: string
-          model: string
-        }) => Promise<{ text: string }>
       }
     }
   }

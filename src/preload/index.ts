@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld('api', {
     run: (payload: { workspaceId: string; from?: string; to?: string }) =>
       ipcRenderer.invoke('notes:export', payload),
     saveFile: (content: string, filename: string) =>
-      ipcRenderer.invoke('export:saveFile', { content, filename })
+      ipcRenderer.invoke('export:saveFile', { content, filename }),
+    saveText: (content: string, filename: string, filters: { name: string; extensions: string[] }[]) =>
+      ipcRenderer.invoke('export:saveText', { content, filename, filters }),
   },
   import: {
     openFile: (): Promise<{ content: string; name: string } | null> =>

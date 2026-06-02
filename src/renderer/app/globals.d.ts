@@ -9,6 +9,7 @@ declare global {
       export: {
         run: (payload: { workspaceId: string; from?: string; to?: string }) => Promise<ExportResultV2>
         saveFile: (content: string, filename: string) => Promise<boolean>
+        saveText: (content: string, filename: string, filters: { name: string; extensions: string[] }[]) => Promise<boolean>
       }
       attachments: {
         list: (noteId: string) => Promise<Attachment[]>

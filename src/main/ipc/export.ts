@@ -104,4 +104,17 @@ export function registerExportHandlers(): void {
       return true
     }
   )
+
+  ipcMain.handle(
+    'export:saveText',
+    async (
+      _e,
+      { content, filename, filters }: { content: string; filename: string; filters: { name: string; extensions: string[] }[] }
+    ): Promise<boolean> => {
+      const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: filename, filters })
+      if (canceled || !filePath) return false
+      fs.writeFileSync(filePath, content, 'utf-8')
+      return true
+    }
+  )
 }

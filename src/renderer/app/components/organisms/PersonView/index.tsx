@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import styled from 'styled-components'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
 import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
@@ -23,6 +25,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
   onEdit?: (note: Note) => void
+  onExpand?: (note: Note) => void
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -85,7 +88,9 @@ const FeedControls = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['4']};
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
 `
 
 const Feed = styled.div`
@@ -98,6 +103,7 @@ const FeedHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  padding-bottom: ${({ theme }) => theme.spacing['2']};
 `
 
 const Empty = styled.div`
@@ -224,12 +230,35 @@ const BannerTitle = styled.span`
   letter-spacing: 0.06em;
 `
 
-const BannerText = styled.p`
+const BannerText = styled.div`
   font-size: ${({ theme }) => theme.typography.size.base};
   color: ${({ theme }) => theme.colors.text.primary};
   line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
-  white-space: pre-wrap;
   user-select: text;
+  word-break: break-word;
+
+  > *:first-child { margin-top: 0; }
+  > *:last-child { margin-bottom: 0; }
+
+  p { margin: 0 0 ${({ theme }) => theme.spacing['2']}; }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: ${({ theme }) => theme.typography.weight.semibold};
+    line-height: ${({ theme }) => theme.typography.lineHeight.tight};
+    margin: ${({ theme }) => theme.spacing['3']} 0 ${({ theme }) => theme.spacing['1']};
+  }
+  h1 { font-size: 1.2em; }
+  h2 { font-size: 1.1em; }
+  h3, h4, h5, h6 { font-size: 1em; }
+
+  strong { font-weight: ${({ theme }) => theme.typography.weight.semibold}; }
+  em { font-style: italic; }
+
+  ul, ol {
+    margin: ${({ theme }) => theme.spacing['1']} 0;
+    padding-left: ${({ theme }) => theme.spacing['4']};
+  }
+  li { margin: 2px 0; }
 `
 
 const BannerActions = styled.div`
@@ -266,7 +295,7 @@ function formatDateLabel(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit }: Props) {
+export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit, onExpand }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { aiSettings } = useAiSettings()
 
@@ -519,7 +548,9 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
                   <BannerTitle>AI Summary · {summary.dateLabel}</BannerTitle>
                   <Button $variant="ghost" $size="sm" onClick={() => setSummary(null)}>Dismiss</Button>
                 </BannerHeader>
-                <BannerText>{summary.text}</BannerText>
+                <BannerText>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{summary.text}</ReactMarkdown>
+                </BannerText>
                 <BannerActions>
                   <Button $variant="ghost" $size="sm" onClick={() => { setSummary(null); setPanelOpen(true) }}>
                     Regenerate
@@ -572,6 +603,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
                               showPerson={false}
                               onDelete={handleDelete}
                               onEdit={onEdit}
+                              onExpand={onExpand}
                             />
                           </VirtualNoteWrapper>
                         )

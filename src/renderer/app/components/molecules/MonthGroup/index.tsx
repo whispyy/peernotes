@@ -9,6 +9,7 @@ interface Props {
   showPerson?: boolean
   onDelete?: (id: string) => void
   onEdit?: (note: Note) => void
+  onExpand?: (note: Note) => void
   highlight?: string
 }
 
@@ -33,7 +34,7 @@ const Label = styled.h3`
   padding: ${({ theme }) => theme.spacing['6']} 0 ${({ theme }) => theme.spacing['2']};
 `
 
-export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, onEdit, highlight }: Props) {
+export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, onEdit, onExpand, highlight }: Props) {
   return (
     <Wrapper>
       <Label>{label}</Label>
@@ -48,6 +49,7 @@ export function MonthGroup({ label, notes, peopleById, showPerson, onDelete, onE
             showPerson={showPerson}
             onDelete={onDelete}
             onEdit={onEdit}
+            onExpand={onExpand}
             highlight={highlight}
           />
         )

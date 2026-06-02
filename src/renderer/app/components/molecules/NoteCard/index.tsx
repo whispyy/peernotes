@@ -13,6 +13,7 @@ interface Props {
   showPerson?: boolean
   onDelete?: (id: string) => void
   onEdit?: (note: Note) => void
+  onExpand?: (note: Note) => void
   highlight?: string
 }
 
@@ -178,6 +179,12 @@ const ActionBtn = styled.button`
 `
 
 const EditBtn = styled(ActionBtn)`
+  &:hover {
+    color: ${({ theme }) => theme.colors.accent};
+  }
+`
+
+const ExpandBtn = styled(ActionBtn)`
   &:hover {
     color: ${({ theme }) => theme.colors.accent};
   }
@@ -358,8 +365,8 @@ const MarkdownNote = memo(function MarkdownNote({ text, query }: { text: string;
   )
 })
 
-export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, highlight = '' }: Props) {
-  const showActions = onEdit || onDelete
+export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, onExpand, highlight = '' }: Props) {
+  const showActions = onEdit || onDelete || onExpand
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [thumbPaths, setThumbPaths] = useState<Record<string, string>>({})
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
@@ -434,6 +441,13 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, h
                   </ConfirmRow>
                 ) : (
                   <>
+                    {onExpand && (
+                      <ExpandBtn onClick={() => onExpand(note)} title="Expanded view">
+                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M8 1.5h3.5v3.5M5 11.5H1.5V8M11.5 1.5l-4 4M1.5 11.5l4-4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </ExpandBtn>
+                    )}
                     {onEdit && (
                       <EditBtn onClick={() => onEdit(note)} title="Edit">✎</EditBtn>
                     )}

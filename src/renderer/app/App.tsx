@@ -10,6 +10,7 @@ import { Settings } from './components/organisms/Settings'
 import { ExportModal } from './components/organisms/ExportModal'
 import { ImportModal } from './components/organisms/ImportModal'
 import { AddNoteModal } from './components/organisms/AddNoteModal'
+import { NoteExpandedModal } from './components/organisms/NoteExpandedModal'
 import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
 import type { Note } from '@shared/types'
 import type { ThemeMode } from './hooks/useThemeMode'
@@ -168,6 +169,7 @@ export function App({ mode, setThemeMode }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('timeline')
   const [addNoteOpen, setAddNoteOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
+  const [expandedNote, setExpandedNote] = useState<Note | null>(null)
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -261,6 +263,7 @@ export function App({ mode, setThemeMode }: Props) {
               peopleById={peopleById}
               onDelete={removeNote}
               onEdit={setEditingNote}
+              onExpand={setExpandedNote}
               searchQuery={searchQuery}
               hasMore={hasMore && !isSearching}
               onLoadMore={loadMore}
@@ -275,6 +278,7 @@ export function App({ mode, setThemeMode }: Props) {
               onDelete={removeNote}
               onAddNote={addNote}
               onEdit={setEditingNote}
+              onExpand={setExpandedNote}
             />
           )}
           {activeTab === 'people' && (
@@ -309,6 +313,13 @@ export function App({ mode, setThemeMode }: Props) {
           onClose={() => setEditingNote(null)}
           initialNote={editingNote}
           initialPerson={peopleById[editingNote.personId]}
+        />
+      )}
+      {expandedNote && (
+        <NoteExpandedModal
+          note={expandedNote}
+          person={peopleById[expandedNote.personId]}
+          onClose={() => setExpandedNote(null)}
         />
       )}
       {exportOpen && workspaceId && (

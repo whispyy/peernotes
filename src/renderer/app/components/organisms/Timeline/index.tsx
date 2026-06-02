@@ -17,6 +17,7 @@ interface Props {
   peopleById: Record<string, Person>
   onDelete: (id: string) => void
   onEdit?: (note: Note) => void
+  onExpand?: (note: Note) => void
   searchQuery?: string
   hasMore?: boolean
   onLoadMore?: () => Promise<void>
@@ -54,7 +55,7 @@ const VirtualNoteWrapper = styled.div`
   padding-bottom: ${({ theme }) => theme.spacing['2']};
 `
 
-export function Timeline({ notes, peopleById, onDelete, onEdit, searchQuery = '', hasMore, onLoadMore }: Props) {
+export function Timeline({ notes, peopleById, onDelete, onEdit, onExpand, searchQuery = '', hasMore, onLoadMore }: Props) {
   const [loadingMore, setLoadingMore] = useState(false)
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -141,6 +142,7 @@ export function Timeline({ notes, peopleById, onDelete, onEdit, searchQuery = ''
                       showPerson
                       onDelete={onDelete}
                       onEdit={onEdit}
+                      onExpand={onExpand}
                       highlight={searchQuery}
                     />
                   </VirtualNoteWrapper>

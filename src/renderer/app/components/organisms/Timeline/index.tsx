@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import type { Note, Person } from '@shared/types'
 import { MonthGroup } from '../../molecules/MonthGroup'
 import { LoadMore } from '../../molecules/LoadMore'
+import { TimelineInsights } from '../../molecules/TimelineInsights'
 import { groupByMonth } from '../../../utils/groupByMonth'
 
 interface Props {
@@ -58,6 +59,9 @@ export function Timeline({ notes, peopleById, onDelete, onEdit, searchQuery = ''
 
   return (
     <Wrapper>
+      {!searchQuery && (
+        <TimelineInsights notes={notes} hasMore={hasMore} />
+      )}
       {groups.map((g) => (
         <MonthGroup
           key={g.label}

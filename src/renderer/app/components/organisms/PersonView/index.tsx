@@ -1,14 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import styled from 'styled-components'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
 import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
-import { MonthGroup } from '../../molecules/MonthGroup'
+import { NoteCard } from '../../molecules/NoteCard'
 import { LoadMore } from '../../molecules/LoadMore'
 import { groupByMonth } from '../../../utils/groupByMonth'
 import { useAiSettings } from '../../../hooks/useAiSettings'
 
 const PAGE_SIZE = 100
+
+type VirtualRow =
+  | { kind: 'header'; label: string; isFirst: boolean }
+  | { kind: 'note'; note: Note }
 
 interface Props {
   people: Person[]
@@ -69,11 +74,24 @@ const NoteCount = styled.span`
   border-radius: ${({ theme }) => theme.radius.full};
 `
 
-const Feed = styled.div`
+const FeedColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+`
+
+const FeedControls = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['4']};
+  flex-shrink: 0;
+`
+
+const Feed = styled.div`
+  flex: 1;
   overflow-y: auto;
+  min-height: 0;
 `
 
 const FeedHeader = styled.div`
@@ -220,6 +238,22 @@ const BannerActions = styled.div`
   justify-content: flex-end;
 `
 
+// ─── Virtual list styled components ──────────────────────────────────────────
+
+const VirtualMonthLabel = styled.h3<{ $isFirst: boolean }>`
+  margin: 0;
+  padding: ${({ $isFirst }) => ($isFirst ? '0' : '32px')} 0 8px;
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  font-weight: ${({ theme }) => theme.typography.weight.semibold};
+  color: ${({ theme }) => theme.colors.text.muted};
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+`
+
+const VirtualNoteWrapper = styled.div`
+  padding-bottom: ${({ theme }) => theme.spacing['2']};
+`
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function todayIso() {
@@ -259,6 +293,8 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   const [summary, setSummary] = useState<{ text: string; dateLabel: string } | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const feedRef = useRef<HTMLDivElement>(null)
+
   // Set initial selection when people list first loads
   useEffect(() => {
     if (selectedId === null && people.length > 0) setSelectedId(people[0].id)
@@ -296,11 +332,11 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     setPanelOpen(false)
     setSummary(null)
     setGenError(null)
+    feedRef.current?.scrollTo({ top: 0 })
     return () => { cancelled = true }
   }, [selectedId, workspaceId])
 
   // Re-fetch first page for selected person whenever an external change lands
-  // (note added via global button or quick-entry, or deleted from another view)
   useEffect(() => {
     if (!selectedId) return
     return window.api.notes.onUpdated(() => {
@@ -311,7 +347,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     })
   }, [selectedId])
 
-  // Keep personTotal in sync whenever countByPerson updates (e.g. after onUpdated refresh)
+  // Keep personTotal in sync whenever countByPerson updates
   useEffect(() => {
     if (selectedId) setPersonTotal(countByPerson[selectedId] ?? 0)
   }, [selectedId, countByPerson])
@@ -351,7 +387,24 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   )
 
   const selectedPerson = people.find((p) => p.id === selectedId)
-  const groups = groupByMonth(personNotes)
+  const groups = useMemo(() => groupByMonth(personNotes), [personNotes])
+
+  const rows = useMemo<VirtualRow[]>(() => {
+    const result: VirtualRow[] = []
+    groups.forEach((g, i) => {
+      result.push({ kind: 'header', label: g.label, isFirst: i === 0 })
+      g.notes.forEach((note) => result.push({ kind: 'note', note }))
+    })
+    return result
+  }, [groups])
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => feedRef.current,
+    estimateSize: (i) => (rows[i].kind === 'header' ? 56 : 120),
+    measureElement: (el) => el.getBoundingClientRect().height,
+    overscan: 5,
+  })
 
   const handleGenerate = async () => {
     if (!selectedId || !selectedPerson) return
@@ -408,6 +461,11 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     setSaving(false)
   }
 
+  const showControls =
+    (aiSettings.enabled && personNotes.length > 0 && !summary) ||
+    (panelOpen && aiSettings.enabled) ||
+    !!summary
+
   return (
     <Layout>
       <Sidebar>
@@ -420,80 +478,115 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
         ))}
       </Sidebar>
 
-      <Feed>
-        {/* Summarize button — only shown when AI enabled and person has notes */}
-        {aiSettings.enabled && personNotes.length > 0 && !summary && (
-          <FeedHeader>
-            <Button $variant="ghost" $size="sm" onClick={() => { setPanelOpen((o) => !o); setGenError(null) }}>
-              {panelOpen ? 'Cancel' : '✦ Summarize'}
-            </Button>
-          </FeedHeader>
-        )}
-
-        {/* Summarize panel */}
-        {panelOpen && aiSettings.enabled && (
-          <SummarizePanel>
-            <PanelLabel>From</PanelLabel>
-            <DateInput type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-            <PanelLabel>to</PanelLabel>
-            <DateInput type="date" value={to} min={from} max={todayIso()} onChange={(e) => setTo(e.target.value)} />
-            {aiSettings.purposes.length > 0 && (
-              <PurposeSelect value={purposeId} onChange={(e) => setPurposeId(e.target.value)}>
-                {aiSettings.purposes.map((p: AiPurposePreset) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </PurposeSelect>
+      <FeedColumn>
+        {showControls && (
+          <FeedControls>
+            {/* Summarize button */}
+            {aiSettings.enabled && personNotes.length > 0 && !summary && (
+              <FeedHeader>
+                <Button $variant="ghost" $size="sm" onClick={() => { setPanelOpen((o) => !o); setGenError(null) }}>
+                  {panelOpen ? 'Cancel' : '✦ Summarize'}
+                </Button>
+              </FeedHeader>
             )}
-            <PanelSpacer />
-            <Button $variant="primary" $size="sm" onClick={handleGenerate} disabled={generating}>
-              {generating ? <>Generating<WaveDots><WaveDot $delay={0}>.</WaveDot><WaveDot $delay={150}>.</WaveDot><WaveDot $delay={300}>.</WaveDot></WaveDots></> : '✦ Generate'}
-            </Button>
-            {genError && <ErrorText>{genError}</ErrorText>}
-          </SummarizePanel>
-        )}
 
-        {/* Summary banner */}
-        {summary && (
-          <SummaryBanner>
-            <BannerHeader>
-              <BannerTitle>AI Summary · {summary.dateLabel}</BannerTitle>
-              <Button $variant="ghost" $size="sm" onClick={() => setSummary(null)}>Dismiss</Button>
-            </BannerHeader>
-            <BannerText>{summary.text}</BannerText>
-            <BannerActions>
-              <Button $variant="ghost" $size="sm" onClick={() => { setSummary(null); setPanelOpen(true) }}>
-                Regenerate
-              </Button>
-              <Button $variant="primary" $size="sm" onClick={handleSaveAsNote} disabled={saving}>
-                {saving ? 'Saving…' : 'Save as note'}
-              </Button>
-            </BannerActions>
-          </SummaryBanner>
-        )}
-
-        {personLoading ? (
-          <Empty>Loading…</Empty>
-        ) : personNotes.length === 0 ? (
-          <Empty>No notes for this person yet.</Empty>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            {groups.map((g) => (
-              <MonthGroup
-                key={g.label}
-                label={g.label}
-                notes={g.notes}
-                peopleById={peopleById}
-                showPerson={false}
-                onDelete={handleDelete}
-                onEdit={onEdit}
-              />
-            ))}
-            {personHasMore && (
-              <LoadMore loading={loadingMore} onClick={handleLoadMore} compact />
+            {/* Summarize panel */}
+            {panelOpen && aiSettings.enabled && (
+              <SummarizePanel>
+                <PanelLabel>From</PanelLabel>
+                <DateInput type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+                <PanelLabel>to</PanelLabel>
+                <DateInput type="date" value={to} min={from} max={todayIso()} onChange={(e) => setTo(e.target.value)} />
+                {aiSettings.purposes.length > 0 && (
+                  <PurposeSelect value={purposeId} onChange={(e) => setPurposeId(e.target.value)}>
+                    {aiSettings.purposes.map((p: AiPurposePreset) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </PurposeSelect>
+                )}
+                <PanelSpacer />
+                <Button $variant="primary" $size="sm" onClick={handleGenerate} disabled={generating}>
+                  {generating ? <>Generating<WaveDots><WaveDot $delay={0}>.</WaveDot><WaveDot $delay={150}>.</WaveDot><WaveDot $delay={300}>.</WaveDot></WaveDots></> : '✦ Generate'}
+                </Button>
+                {genError && <ErrorText>{genError}</ErrorText>}
+              </SummarizePanel>
             )}
-          </div>
+
+            {/* Summary banner */}
+            {summary && (
+              <SummaryBanner>
+                <BannerHeader>
+                  <BannerTitle>AI Summary · {summary.dateLabel}</BannerTitle>
+                  <Button $variant="ghost" $size="sm" onClick={() => setSummary(null)}>Dismiss</Button>
+                </BannerHeader>
+                <BannerText>{summary.text}</BannerText>
+                <BannerActions>
+                  <Button $variant="ghost" $size="sm" onClick={() => { setSummary(null); setPanelOpen(true) }}>
+                    Regenerate
+                  </Button>
+                  <Button $variant="primary" $size="sm" onClick={handleSaveAsNote} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save as note'}
+                  </Button>
+                </BannerActions>
+              </SummaryBanner>
+            )}
+          </FeedControls>
         )}
-      </Feed>
+
+        <Feed ref={feedRef}>
+          {personLoading ? (
+            <Empty>Loading…</Empty>
+          ) : personNotes.length === 0 ? (
+            <Empty>No notes for this person yet.</Empty>
+          ) : (
+            <>
+              <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
+                {virtualizer.getVirtualItems().map((vi) => {
+                  const row = rows[vi.index]
+                  return (
+                    <div
+                      key={vi.key}
+                      data-index={vi.index}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${vi.start}px)`,
+                      }}
+                    >
+                      {row.kind === 'header' && (
+                        <VirtualMonthLabel $isFirst={row.isFirst}>
+                          {row.label}
+                        </VirtualMonthLabel>
+                      )}
+                      {row.kind === 'note' && (() => {
+                        const person = peopleById[row.note.personId]
+                        if (!person) return null
+                        return (
+                          <VirtualNoteWrapper>
+                            <NoteCard
+                              note={row.note}
+                              person={person}
+                              showPerson={false}
+                              onDelete={handleDelete}
+                              onEdit={onEdit}
+                            />
+                          </VirtualNoteWrapper>
+                        )
+                      })()}
+                    </div>
+                  )
+                })}
+              </div>
+              {personHasMore && (
+                <LoadMore loading={loadingMore} onClick={handleLoadMore} compact />
+              )}
+            </>
+          )}
+        </Feed>
+      </FeedColumn>
     </Layout>
   )
 }

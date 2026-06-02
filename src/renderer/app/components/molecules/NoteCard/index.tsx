@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo, Fragment, isValidElement, cloneElement, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import styled from 'styled-components'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -274,6 +275,25 @@ const LightboxImage = styled.img`
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 `
 
+const LightboxClose = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &:hover { background: rgba(255, 255, 255, 0.25); }
+`
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
@@ -481,13 +501,15 @@ export function NoteCard({ note, person, showPerson = false, onDelete, onEdit, o
           )}
         </Body>
       </Card>
-      {lightboxSrc && (
+      {lightboxSrc && createPortal(
         <LightboxOverlay onClick={closeLightbox}>
+          <LightboxClose onClick={closeLightbox} title="Close">✕</LightboxClose>
           <LightboxImage
             src={lightboxSrc}
             onClick={(e) => e.stopPropagation()}
           />
-        </LightboxOverlay>
+        </LightboxOverlay>,
+        document.body
       )}
     </>
   )

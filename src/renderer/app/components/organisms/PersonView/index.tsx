@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import styled from 'styled-components'
+import styled, { createGlobalStyle, css, keyframes } from 'styled-components'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
@@ -88,9 +88,7 @@ const FeedControls = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['4']};
-  flex-shrink: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex-shrink: 0;
 `
 
 const Feed = styled.div`
@@ -118,15 +116,82 @@ const Empty = styled.div`
 
 // ─── Summarize panel ─────────────────────────────────────────────────────────
 
-const SummarizePanel = styled.div`
+// #0A84FF → 10, 132, 255  |  teal #32D4A0 → 50, 212, 160
+const ACCENT_RGB = '10, 132, 255'
+const TEAL_RGB   = '50, 212, 160'
+
+// Register --arc as an animatable <angle> so the conic-gradient start
+// interpolates smoothly without rotating the element (no layout overflow).
+const ArcProperty = createGlobalStyle`
+  @property --arc {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 270deg;
+  }
+`
+
+// 270° → 630° = one full clockwise turn, starting at the same frame as arcGlow
+const arcSpin = keyframes`
+  from { --arc: 270deg }
+  to   { --arc: 630deg }
+`
+
+// Directional glow that tracks the arc head as it orbits the panel
+const arcGlow = keyframes`
+  0%   { box-shadow: -3px  5px  9px rgba(${ACCENT_RGB},.28),  -5px  10px 18px rgba(${ACCENT_RGB},.10); }
+  25%  { box-shadow: -5px -3px  9px rgba(${TEAL_RGB},.28),   -10px  -5px 18px rgba(${TEAL_RGB},.10);   }
+  50%  { box-shadow:  3px -5px  9px rgba(${TEAL_RGB},.28),     5px -10px 18px rgba(${TEAL_RGB},.10);   }
+  75%  { box-shadow:  5px  3px  9px rgba(${ACCENT_RGB},.28),  10px   5px 18px rgba(${ACCENT_RGB},.10); }
+  100% { box-shadow: -3px  5px  9px rgba(${ACCENT_RGB},.28),  -5px  10px 18px rgba(${ACCENT_RGB},.10); }
+`
+
+const PanelSpinWrapper = styled.div<{ $generating: boolean }>`
+  position: relative;
+  border-radius: calc(${({ theme }) => theme.radius.lg} + 2px);
+  margin: 2px 2px ${({ theme }) => theme.spacing['3']};
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from var(--arc),
+      transparent 0deg,
+      transparent 235deg,
+      rgba(${ACCENT_RGB}, 0.3) 255deg,
+      #0A84FF 272deg,
+      #32D4A0 318deg,
+      rgba(${TEAL_RGB}, 0.3) 338deg,
+      transparent 360deg
+    );
+    opacity: ${({ $generating }) => ($generating ? 1 : 0)};
+    transition: opacity 0.35s;
+    ${({ $generating }) =>
+      $generating &&
+      css`
+        animation: ${arcSpin} 2.2s linear infinite;
+      `}
+  }
+`
+
+const SummarizePanel = styled.div<{ $generating: boolean }>`
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing['2']};
   padding: ${({ theme }) => theme.spacing['3']} ${({ theme }) => theme.spacing['4']};
   background: ${({ theme }) => theme.colors.bg.secondary};
-  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
+  border: 1px solid transparent;
   border-radius: ${({ theme }) => theme.radius.lg};
   flex-wrap: wrap;
+  transition: background 0.3s, border-color 0.3s;
+  ${({ $generating }) =>
+    $generating &&
+    css`
+      animation: ${arcGlow} 2.2s linear infinite;
+    `}
 `
 
 const PanelLabel = styled.span`
@@ -183,25 +248,6 @@ const ErrorText = styled.span`
   width: 100%;
 `
 
-// ─── Animated dots ───────────────────────────────────────────────────────────
-
-const WaveDots = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  margin-left: 2px;
-`
-
-const WaveDot = styled.span<{ $delay: number }>`
-  @keyframes wave {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-3px); }
-  }
-
-  display: inline-block;
-  animation: wave 1s ease-in-out infinite;
-  animation-delay: ${({ $delay }) => $delay}ms;
-`
 
 // ─── Summary banner ──────────────────────────────────────────────────────────
 
@@ -236,6 +282,8 @@ const BannerText = styled.div`
   line-height: ${({ theme }) => theme.typography.lineHeight.relaxed};
   user-select: text;
   word-break: break-word;
+  max-height: 260px;
+  overflow-y: auto;
 
   > *:first-child { margin-top: 0; }
   > *:last-child { margin-bottom: 0; }
@@ -323,6 +371,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   const [saving, setSaving] = useState(false)
 
   const feedRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   // Set initial selection when people list first loads
   useEffect(() => {
@@ -453,31 +502,56 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
       return
     }
 
+    const controller = new AbortController()
+    abortRef.current = controller
     setGenerating(true)
+
     try {
       const rangeNotes = await window.api.notes.listForPersonInRange(selectedId, from, to)
 
+      if (controller.signal.aborted) return
+
       if (rangeNotes.length === 0) {
         setGenError('No notes found in this date range.')
-        setGenerating(false)
         return
       }
 
-      const result = await window.api.ai.summarize({
-        personName: selectedPerson.name,
-        notes: rangeNotes.map((n) => ({ sentiment: n.sentiment, note: n.note, timestamp: n.timestamp })),
-        from: formatDateLabel(from),
-        to: formatDateLabel(to),
-        systemPrompt: purpose?.systemPrompt ?? 'Summarize the following notes about this person.',
-        apiKey: aiSettings.apiKey,
-        model: aiSettings.model,
+      const notesText = rangeNotes
+        .map((n) => `[${new Date(n.timestamp).toLocaleDateString()} · ${n.sentiment}] ${n.note}`)
+        .join('\n\n')
+
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${aiSettings.apiKey}`,
+          'HTTP-Referer': 'https://peernotes.app',
+          'X-Title': 'Peernotes',
+        },
+        body: JSON.stringify({
+          model: aiSettings.model,
+          messages: [
+            { role: 'system', content: purpose?.systemPrompt ?? 'Summarize the following notes about this person.' },
+            { role: 'user', content: `Person: ${selectedPerson.name}\nDate range: ${formatDateLabel(from)} to ${formatDateLabel(to)}\n\nNotes:\n${notesText}` },
+          ],
+        }),
+        signal: controller.signal,
       })
-      setSummary({ text: result.text, dateLabel: `${formatDateLabel(from)} – ${formatDateLabel(to)}` })
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
+        throw new Error(errorData?.error?.message ?? `OpenRouter error: ${response.status}`)
+      }
+
+      const data = (await response.json()) as { choices: Array<{ message: { content: string } }> }
+      setSummary({ text: data.choices[0]?.message?.content ?? '', dateLabel: `${formatDateLabel(from)} – ${formatDateLabel(to)}` })
       setPanelOpen(false)
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
       setGenError(err instanceof Error ? err.message : 'Generation failed.')
     } finally {
       setGenerating(false)
+      abortRef.current = null
     }
   }
 
@@ -496,6 +570,8 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     !!summary
 
   return (
+    <>
+    <ArcProperty />
     <Layout>
       <Sidebar>
         {people.map((p) => (
@@ -511,34 +587,41 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
         {showControls && (
           <FeedControls>
             {/* Summarize button */}
-            {aiSettings.enabled && personNotes.length > 0 && !summary && (
+            {aiSettings.enabled && personNotes.length > 0 && !summary && !panelOpen && (
               <FeedHeader>
-                <Button $variant="ghost" $size="sm" onClick={() => { setPanelOpen((o) => !o); setGenError(null) }}>
-                  {panelOpen ? 'Cancel' : '✦ Summarize'}
+                <Button $variant="ghost" $size="sm" onClick={() => { setPanelOpen(true); setGenError(null) }}>
+                  ✦ Summarize
                 </Button>
               </FeedHeader>
             )}
 
             {/* Summarize panel */}
             {panelOpen && aiSettings.enabled && (
-              <SummarizePanel>
-                <PanelLabel>From</PanelLabel>
-                <DateInput type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-                <PanelLabel>to</PanelLabel>
-                <DateInput type="date" value={to} min={from} max={todayIso()} onChange={(e) => setTo(e.target.value)} />
-                {aiSettings.purposes.length > 0 && (
-                  <PurposeSelect value={purposeId} onChange={(e) => setPurposeId(e.target.value)}>
-                    {aiSettings.purposes.map((p: AiPurposePreset) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </PurposeSelect>
-                )}
-                <PanelSpacer />
-                <Button $variant="primary" $size="sm" onClick={handleGenerate} disabled={generating}>
-                  {generating ? <>Generating<WaveDots><WaveDot $delay={0}>.</WaveDot><WaveDot $delay={150}>.</WaveDot><WaveDot $delay={300}>.</WaveDot></WaveDots></> : '✦ Generate'}
-                </Button>
-                {genError && <ErrorText>{genError}</ErrorText>}
-              </SummarizePanel>
+              <PanelSpinWrapper $generating={generating}>
+                <SummarizePanel $generating={generating}>
+                  <PanelLabel>From</PanelLabel>
+                  <DateInput type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+                  <PanelLabel>to</PanelLabel>
+                  <DateInput type="date" value={to} min={from} max={todayIso()} onChange={(e) => setTo(e.target.value)} />
+                  {aiSettings.purposes.length > 0 && (
+                    <PurposeSelect value={purposeId} onChange={(e) => setPurposeId(e.target.value)}>
+                      {aiSettings.purposes.map((p: AiPurposePreset) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </PurposeSelect>
+                  )}
+                  <PanelSpacer />
+                  <Button $variant="ghost" $size="sm" onClick={() => { abortRef.current?.abort(); setPanelOpen(false); setGenError(null) }}>
+                    Cancel
+                  </Button>
+                  {!generating && (
+                    <Button $variant="primary" $size="sm" onClick={handleGenerate}>
+                      ✦ Generate
+                    </Button>
+                  )}
+                  {genError && <ErrorText>{genError}</ErrorText>}
+                </SummarizePanel>
+              </PanelSpinWrapper>
             )}
 
             {/* Summary banner */}
@@ -620,5 +703,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
         </Feed>
       </FeedColumn>
     </Layout>
+    </>
   )
 }

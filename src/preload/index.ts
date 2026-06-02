@@ -115,14 +115,5 @@ contextBridge.exposeInMainWorld('api', {
         ipcRenderer.invoke('ai:purposes:update', payload),
       remove: (id: string): Promise<void> => ipcRenderer.invoke('ai:purposes:remove', id),
     },
-    summarize: (payload: {
-      personName: string
-      notes: Array<{ sentiment: string; note: string; timestamp: string }>
-      from: string
-      to: string
-      systemPrompt: string
-      apiKey: string
-      model: string
-    }): Promise<{ text: string }> => ipcRenderer.invoke('ai:summarize', payload),
   }
 })

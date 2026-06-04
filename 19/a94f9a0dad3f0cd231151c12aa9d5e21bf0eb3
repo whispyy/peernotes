@@ -1,0 +1,19 @@
+src/renderer/app/components/organisms/AddNoteModal/index.tsx
+  s_868f2a0fadea0f::t_ee94d5b7248f39 222,225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "19a94f9a0dad3f0cd231151c12aa9d5e21bf0eb3",
+  "prompts": {},
+  "sessions": {
+    "s_868f2a0fadea0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d518953a-944a-4de6-98cb-c45ced63923b",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

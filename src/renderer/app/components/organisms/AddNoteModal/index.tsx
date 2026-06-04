@@ -219,9 +219,10 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
   }
 
   const canSave = !!note.trim() && !saving && (isEditing || !!selectedPerson)
+  const isDirty = note !== (initialNote?.note ?? '')
 
   return (
-    <ModalBackdrop onClose={onClose} onKeyDown={handleKeyDown}>
+    <ModalBackdrop onClose={isDirty ? () => {} : onClose} onKeyDown={handleKeyDown}>
       <Card>
         <Header>
           <Title>{isEditing ? 'Edit Note' : 'New Note'}</Title>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useHtmlPaste } from '../app/hooks/useHtmlPaste'
 import styled, { createGlobalStyle } from 'styled-components'
 import type { Person, Sentiment, Workspace } from '@shared/types'
 import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
@@ -368,6 +369,8 @@ export function QuickEntryApp() {
     }
   }, [selectedPerson, sentiment, note, stagedImages])
 
+  const handlePaste = useHtmlPaste(note, setNote, NOTE_MAX_LENGTH)
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
     if (e.key === 'Escape') {
@@ -430,6 +433,7 @@ export function QuickEntryApp() {
             placeholder="What happened…"
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
+            onPaste={handlePaste}
             rows={4}
           />
 

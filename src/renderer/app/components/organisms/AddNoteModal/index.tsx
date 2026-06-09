@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useHtmlPaste } from '../../../hooks/useHtmlPaste'
 import styled from 'styled-components'
 import type { Note, Person, Sentiment, Attachment } from '@shared/types'
 import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
@@ -218,6 +219,8 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
   }
 
+  const handlePaste = useHtmlPaste(note, setNote, NOTE_MAX_LENGTH)
+
   const canSave = !!note.trim() && !saving && (isEditing || !!selectedPerson)
   const isDirty = note !== (initialNote?.note ?? '')
 
@@ -251,6 +254,7 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
             placeholder="What happened…"
             value={note}
             onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
+            onPaste={handlePaste}
             rows={5}
             autoFocus={isEditing}
           />

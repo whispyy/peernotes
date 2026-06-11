@@ -3,7 +3,6 @@ import { useHtmlPaste } from '../../../hooks/useHtmlPaste'
 import styled from 'styled-components'
 import type { Note, Person, Sentiment, Attachment } from '@shared/types'
 import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
-import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
 import { TextArea } from '../../atoms/TextArea'
 import { PersonSelector } from '../../molecules/PersonSelector'
@@ -39,21 +38,10 @@ const SaveError = styled.span`
   margin-right: auto;
 `
 
-const LockedPerson = styled.div`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing['2']};
-  padding: ${({ theme }) => theme.spacing['2']} ${({ theme }) => theme.spacing['2.5']};
-  background: ${({ theme }) => theme.colors.bg.secondary};
-  border: 1px solid ${({ theme }) => theme.colors.border.subtle};
-  border-radius: ${({ theme }) => theme.radius.md};
-`
-
-const LockedPersonName = styled.span`
-  font-size: ${({ theme }) => theme.typography.size.sm};
-  font-weight: ${({ theme }) => theme.typography.weight.medium};
-  color: ${({ theme }) => theme.colors.text.primary};
+const MoveHint = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.text.muted};
+  margin-right: auto;
 `
 
 const ImageSection = styled.div`
@@ -130,7 +118,7 @@ interface ExistingAttachment extends Attachment {
 
 export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Props) {
   const isEditing = !!initialNote
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(initialPerson ?? null)
   const [sentiment, setSentiment] = useState<Sentiment>(initialNote?.sentiment ?? 'neutral')
   const [note, setNote] = useState(initialNote?.note ?? '')
   const [saving, setSaving] = useState(false)
@@ -193,7 +181,8 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
     try {
       let noteId: string
       if (isEditing && initialNote) {
-        await window.api.notes.update(initialNote.id, { sentiment, note: trimmedNote })
+        const personId = selectedPerson?.id !== initialNote.personId ? selectedPerson?.id : undefined
+        await window.api.notes.update(initialNote.id, { sentiment, note: trimmedNote, personId })
         noteId = initialNote.id
       } else if (selectedPerson) {
         const created = await window.api.notes.add({ personId: selectedPerson.id, sentiment, note: trimmedNote })
@@ -221,8 +210,10 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
 
   const handlePaste = useHtmlPaste(note, setNote, NOTE_MAX_LENGTH)
 
-  const canSave = !!note.trim() && !saving && (isEditing || !!selectedPerson)
-  const isDirty = note !== (initialNote?.note ?? '')
+  const personChanged = isEditing && selectedPerson?.id !== initialPerson?.id
+
+  const canSave = !!note.trim() && !saving && !!selectedPerson
+  const isDirty = note !== (initialNote?.note ?? '') || personChanged
 
   return (
     <ModalBackdrop onClose={isDirty ? () => {} : onClose} onKeyDown={handleKeyDown}>
@@ -234,19 +225,12 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
 
         <Body>
           <PersonSentimentRow>
-            {isEditing && initialPerson ? (
-              <LockedPerson>
-                <Avatar name={initialPerson.name} size={24} />
-                <LockedPersonName>{initialPerson.name}</LockedPersonName>
-              </LockedPerson>
-            ) : (
-              <PersonSelector
-                people={people}
-                value={selectedPerson}
-                onChange={setSelectedPerson}
-                autoFocus
-              />
-            )}
+            <PersonSelector
+              people={people}
+              value={selectedPerson}
+              onChange={setSelectedPerson}
+              autoFocus={!isEditing}
+            />
             <SentimentPicker value={sentiment} onChange={setSentiment} compact />
           </PersonSentimentRow>
 
@@ -294,6 +278,8 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
         <Footer>
           {saveError
             ? <SaveError>{saveError}</SaveError>
+            : personChanged && selectedPerson
+            ? <MoveHint>Note will move to {selectedPerson.name}</MoveHint>
             : <CharCount $warn={note.length > NOTE_MAX_LENGTH * 0.9}>
                 {note.length > 0 && `${note.length.toLocaleString()}/${NOTE_MAX_LENGTH.toLocaleString()}`}
               </CharCount>

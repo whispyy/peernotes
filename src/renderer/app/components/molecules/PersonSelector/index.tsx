@@ -21,14 +21,21 @@ const SearchInput = styled(Input)`
   padding-left: 36px;
 `
 
-const SearchIcon = styled.span`
+const LeftSlot = styled.div`
   position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: ${({ theme }) => theme.colors.text.muted};
-  font-size: 14px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+`
+
+const SearchIcon = styled.span`
+  color: ${({ theme }) => theme.colors.text.muted};
+  font-size: 20px;
 `
 
 const Dropdown = styled.ul`
@@ -129,7 +136,9 @@ export function PersonSelector({ people, value, onChange, autoFocus }: Props) {
 
   return (
     <Wrapper>
-      <SearchIcon>⌕</SearchIcon>
+      <LeftSlot>
+        {value ? <Avatar name={value.name} size={22} /> : <SearchIcon>⌕</SearchIcon>}
+      </LeftSlot>
       <SearchInput
         ref={inputRef}
         value={query}

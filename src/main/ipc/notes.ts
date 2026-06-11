@@ -155,9 +155,9 @@ export function registerNotesHandlers(): void {
 
   ipcMain.handle(
     'notes:update',
-    (_e, id: string, payload: { sentiment: Sentiment; note: string }): Note => {
+    (_e, id: string, payload: { sentiment: Sentiment; note: string; personId?: string }): Note => {
       if (!id || typeof id !== 'string') throw new Error('Invalid note id')
-      const { sentiment, note } = payload
+      const { sentiment, note, personId } = payload
       if (!VALID_SENTIMENTS.includes(sentiment)) throw new Error('Invalid sentiment')
       if (!note?.trim()) throw new Error('Note is required')
 
@@ -168,10 +168,19 @@ export function registerNotesHandlers(): void {
       if (!existing) throw new Error('Note not found')
 
       const trimmed = note.trim().slice(0, NOTE_MAX_LENGTH)
-      db.prepare('UPDATE notes SET sentiment = ?, note = ? WHERE id = ?').run(sentiment, trimmed, id)
+      const newPersonId = personId ?? existing.personId
+
+      if (newPersonId !== existing.personId) {
+        const personExists = db.prepare('SELECT id FROM people WHERE id = ?').get(newPersonId)
+        if (!personExists) throw new Error('Unknown person')
+        db.prepare('UPDATE notes SET sentiment = ?, note = ?, person_id = ? WHERE id = ?')
+          .run(sentiment, trimmed, newPersonId, id)
+      } else {
+        db.prepare('UPDATE notes SET sentiment = ?, note = ? WHERE id = ?').run(sentiment, trimmed, id)
+      }
 
       notifyMainWindow()
-      return { ...existing, sentiment, note: trimmed }
+      return { ...existing, personId: newPersonId, sentiment, note: trimmed }
     }
   )
 }

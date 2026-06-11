@@ -1,0 +1,22 @@
+src/renderer/app/components/molecules/PersonSelector/index.tsx
+  s_52e1c29fe702a9::t_cc57bb1bb01391 139-141
+  s_52e1c29fe702a9::t_2f8bc100594a18 24,30-31,36-37
+  s_52e1c29fe702a9::t_e919f76ac3fe6e 38
+  s_52e1c29fe702a9::t_57ea0b3b676db8 26-29,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f1f63d4334e9cb9311c93ffdbcd8b42680c50ca6",
+  "prompts": {},
+  "sessions": {
+    "s_52e1c29fe702a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "73ebd9db-c166-4ec0-9dc4-9d23c108accf",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

@@ -26,6 +26,8 @@ interface Props {
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
   onEdit?: (note: Note) => void
   onExpand?: (note: Note) => void
+  searchQuery: string
+  isSearching: boolean
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
@@ -344,7 +346,7 @@ function formatDateLabel(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit, onExpand }: Props) {
+export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit, onExpand, searchQuery, isSearching }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { aiSettings } = useAiSettings()
 
@@ -399,32 +401,49 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     setPersonLoading(true)
     setPersonNotes([])
     personDbOffsetRef.current = 0
-    window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
-      if (cancelled) {
+
+    if (isSearching && workspaceId) {
+      window.api.notes.search(workspaceId, searchQuery).then((results) => {
+        if (cancelled) { setPersonLoading(false); return }
+        const filtered = results.filter((n) => n.personId === selectedId)
+        setPersonNotes(filtered)
+        personDbOffsetRef.current = filtered.length
         setPersonLoading(false)
-        return
-      }
-      setPersonNotes(list)
-      personDbOffsetRef.current = list.length
-      setPersonLoading(false)
-    })
+      })
+    } else {
+      window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
+        if (cancelled) { setPersonLoading(false); return }
+        setPersonNotes(list)
+        personDbOffsetRef.current = list.length
+        setPersonLoading(false)
+      })
+    }
+
     setPanelOpen(false)
     setSummary(null)
     setGenError(null)
     feedRef.current?.scrollTo({ top: 0 })
     return () => { cancelled = true }
-  }, [selectedId, workspaceId])
+  }, [selectedId, workspaceId, isSearching, searchQuery])
 
   // Re-fetch first page for selected person whenever an external change lands
   useEffect(() => {
     if (!selectedId) return
     return window.api.notes.onUpdated(() => {
-      window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
-        setPersonNotes(list)
-        personDbOffsetRef.current = list.length
-      })
+      if (isSearching && workspaceId) {
+        window.api.notes.search(workspaceId, searchQuery).then((results) => {
+          const filtered = results.filter((n) => n.personId === selectedId)
+          setPersonNotes(filtered)
+          personDbOffsetRef.current = filtered.length
+        })
+      } else {
+        window.api.notes.listForPerson(selectedId, 0, PAGE_SIZE).then((list) => {
+          setPersonNotes(list)
+          personDbOffsetRef.current = list.length
+        })
+      }
     })
-  }, [selectedId])
+  }, [selectedId, workspaceId, isSearching, searchQuery])
 
   // Keep personTotal in sync whenever countByPerson updates
   useEffect(() => {
@@ -438,7 +457,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     }
   }, [aiSettings.purposes, purposeId])
 
-  const personHasMore = personNotes.length < personTotal
+  const personHasMore = !isSearching && personNotes.length < personTotal
 
   const handleLoadMore = useCallback(async () => {
     if (!selectedId || loadingMore) return
@@ -652,7 +671,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
           {personLoading ? (
             <Empty>Loading…</Empty>
           ) : personNotes.length === 0 ? (
-            <Empty>No notes for this person yet.</Empty>
+            <Empty>{isSearching ? 'No notes match your search.' : 'No notes for this person yet.'}</Empty>
           ) : (
             <>
               <div style={{ position: 'relative', height: virtualizer.getTotalSize() }}>
@@ -688,6 +707,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
                               onDelete={handleDelete}
                               onEdit={onEdit}
                               onExpand={onExpand}
+                              highlight={searchQuery}
                             />
                           </VirtualNoteWrapper>
                         )

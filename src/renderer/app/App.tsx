@@ -289,6 +289,8 @@ export function App({ mode, setThemeMode }: Props) {
               onAddNote={addNote}
               onEdit={setEditingNote}
               onExpand={setExpandedNote}
+              searchQuery={searchQuery}
+              isSearching={isSearching}
             />
           )}
           {activeTab === 'people' && (

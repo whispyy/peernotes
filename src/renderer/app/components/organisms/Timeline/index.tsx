@@ -28,6 +28,7 @@ const Wrapper = styled.div`
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+  padding-right: ${({ theme }) => theme.spacing['2']};
 `
 
 const Empty = styled.div`

@@ -33,6 +33,16 @@ const GlobalStyle = createGlobalStyle`
     user-select: none;
   }
   p, textarea, input { user-select: text; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.bg.tertiary};
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.colors.text.muted};
+  }
 `
 
 const Shell = styled.div`

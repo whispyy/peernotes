@@ -95,6 +95,7 @@ const Feed = styled.div`
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  padding-right: ${({ theme }) => theme.spacing['2']};
 `
 
 const FeedHeader = styled.div`

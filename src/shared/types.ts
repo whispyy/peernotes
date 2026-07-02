@@ -17,6 +17,8 @@ export interface Person {
   workspaceId: string
   name: string
   createdAt: string
+  /** ISO timestamp when archived; null/undefined when active. */
+  archivedAt?: string | null
 }
 
 export interface Note {
@@ -84,7 +86,7 @@ export type AnyExportResult = ExportResult | ExportResultV2
 /** Accepts both v1 (with people[]) and legacy (notes-only) export files */
 export interface ImportPayload {
   version?: number
-  people?: Array<{ id: string; name: string; createdAt?: string }>
+  people?: Array<{ id: string; name: string; createdAt?: string; archivedAt?: string | null }>
   notes: Array<{
     id?: string
     personId?: string

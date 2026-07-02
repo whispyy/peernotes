@@ -189,7 +189,7 @@ export function App({ mode, setThemeMode }: Props) {
     useWorkspaces()
   const workspaceId = activeWorkspace?.id ?? null
 
-  const { people, peopleById, addPerson, renamePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
+  const { people, archivedPeople, peopleById, addPerson, renamePerson, archivePerson, restorePerson, removePerson, refresh: refreshPeople } = usePeople(workspaceId)
   const { notes, hasMore, loadMore, countByPerson, addNote, removeNote, refresh: refreshNotes } = useNotes(workspaceId)
 
   const [searchResults, setSearchResults] = useState<typeof notes>([])
@@ -296,9 +296,12 @@ export function App({ mode, setThemeMode }: Props) {
           {activeTab === 'people' && (
             <PeopleManager
               people={people}
+              archivedPeople={archivedPeople}
               noteCountById={countByPerson}
               onAdd={addPerson}
               onRename={renamePerson}
+              onArchive={archivePerson}
+              onRestore={restorePerson}
               onRemove={removePerson}
             />
           )}

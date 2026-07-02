@@ -38,7 +38,7 @@ export function buildExport(
   }
 
   const people = db
-    .prepare('SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt FROM people WHERE workspace_id = ?')
+    .prepare('SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt, archived_at AS archivedAt FROM people WHERE workspace_id = ?')
     .all(workspaceId) as Person[]
   const peopleById = Object.fromEntries(people.map((p) => [p.id, p]))
 

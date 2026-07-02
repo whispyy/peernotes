@@ -32,12 +32,12 @@ export function performImport(payload: ImportPayload, workspaceId: string): Impo
     // Seed from payload.people for v1 round-trip fidelity
     if (Array.isArray(payload.people)) {
       const insertPerson = db.prepare(
-        'INSERT OR IGNORE INTO people (id, workspace_id, name, created_at) VALUES (?, ?, ?, ?)'
+        'INSERT OR IGNORE INTO people (id, workspace_id, name, created_at, archived_at) VALUES (?, ?, ?, ?, ?)'
       )
       for (const p of payload.people) {
         if (!p.id || !p.name?.trim()) continue
         const name = p.name.trim()
-        const r = insertPerson.run(p.id, workspaceId, name, p.createdAt ?? new Date().toISOString())
+        const r = insertPerson.run(p.id, workspaceId, name, p.createdAt ?? new Date().toISOString(), p.archivedAt ?? null)
         if (r.changes > 0) {
           peopleCreated++
           nameToId.set(name.toLowerCase(), p.id)

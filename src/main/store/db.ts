@@ -200,4 +200,17 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 9')
   }
+
+  if (version < 10) {
+    // Soft-archive people. archived_at IS NULL ⇒ active; a timestamp ⇒ archived.
+    // A person's notes are hidden whenever the person is archived (every note
+    // query joins people), so no per-note flag is needed.
+    db.transaction(() => {
+      db.exec(`
+        ALTER TABLE people ADD COLUMN archived_at TEXT;
+        CREATE INDEX IF NOT EXISTS idx_people_archived ON people(workspace_id, archived_at);
+      `)
+    })()
+    db.pragma('user_version = 10')
+  }
 }

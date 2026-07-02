@@ -24,8 +24,11 @@ declare global {
       }
       people: {
         list: (workspaceId: string) => Promise<Person[]>
+        listArchived: (workspaceId: string) => Promise<Person[]>
         add: (workspaceId: string, name: string) => Promise<Person>
         rename: (id: string, name: string) => Promise<void>
+        archive: (id: string) => Promise<void>
+        restore: (id: string) => Promise<void>
         remove: (id: string) => Promise<void>
         onUpdated: (cb: () => void) => (() => void)
       }

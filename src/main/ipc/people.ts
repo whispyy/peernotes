@@ -1,15 +1,21 @@
 import { ipcMain } from 'electron'
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../store/db'
-import { notifyPeopleUpdated } from '../windows'
+import { notifyPeopleUpdated, notifyMainWindow } from '../windows'
 import type { Person } from '@shared/types'
 
-export const SELECT_PERSON = `SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt FROM people`
+export const SELECT_PERSON = `SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt, archived_at AS archivedAt FROM people`
 
 export function registerPeopleHandlers(): void {
   ipcMain.handle('people:list', (_e, workspaceId: string): Person[] => {
     return getDb()
-      .prepare(`${SELECT_PERSON} WHERE workspace_id = ? ORDER BY name COLLATE NOCASE`)
+      .prepare(`${SELECT_PERSON} WHERE workspace_id = ? AND archived_at IS NULL ORDER BY name COLLATE NOCASE`)
+      .all(workspaceId) as Person[]
+  })
+
+  ipcMain.handle('people:list-archived', (_e, workspaceId: string): Person[] => {
+    return getDb()
+      .prepare(`${SELECT_PERSON} WHERE workspace_id = ? AND archived_at IS NOT NULL ORDER BY archived_at DESC`)
       .all(workspaceId) as Person[]
   })
 
@@ -57,6 +63,26 @@ export function registerPeopleHandlers(): void {
       db.prepare('UPDATE people SET name = ? WHERE id = ?').run(trimmed, id)
     })()
     notifyPeopleUpdated()
+  })
+
+  ipcMain.handle('people:archive', (_e, id: string): void => {
+    if (!id || typeof id !== 'string') throw new Error('Invalid id')
+    const db = getDb()
+    const person = db.prepare('SELECT id FROM people WHERE id = ?').get(id)
+    if (!person) throw new Error('Person not found')
+    db.prepare('UPDATE people SET archived_at = ? WHERE id = ?').run(new Date().toISOString(), id)
+    notifyPeopleUpdated()
+    notifyMainWindow()  // notes for this person leave the timeline
+  })
+
+  ipcMain.handle('people:restore', (_e, id: string): void => {
+    if (!id || typeof id !== 'string') throw new Error('Invalid id')
+    const db = getDb()
+    const person = db.prepare('SELECT id FROM people WHERE id = ?').get(id)
+    if (!person) throw new Error('Person not found')
+    db.prepare('UPDATE people SET archived_at = NULL WHERE id = ?').run(id)
+    notifyPeopleUpdated()
+    notifyMainWindow()  // notes for this person return to the timeline
   })
 
   ipcMain.handle('people:remove', (_e, id: string): void => {

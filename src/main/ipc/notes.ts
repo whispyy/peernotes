@@ -18,7 +18,7 @@ export function registerNotesHandlers(): void {
         SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
         FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ?
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL
         ORDER BY n.timestamp DESC
         LIMIT ? OFFSET ?
       `)
@@ -34,7 +34,7 @@ export function registerNotesHandlers(): void {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ? AND n.timestamp >= ? AND n.timestamp <= ?
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL AND n.timestamp >= ? AND n.timestamp <= ?
       `).get(workspaceId, fromIso, toIso) as { total: number }
       return row.total
     }
@@ -42,7 +42,7 @@ export function registerNotesHandlers(): void {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ? AND n.timestamp >= ?
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL AND n.timestamp >= ?
       `).get(workspaceId, fromIso) as { total: number }
       return row.total
     }
@@ -50,14 +50,14 @@ export function registerNotesHandlers(): void {
       const row = db.prepare(`
         SELECT COUNT(*) AS total FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ? AND n.timestamp <= ?
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL AND n.timestamp <= ?
       `).get(workspaceId, toIso) as { total: number }
       return row.total
     }
     const row = db.prepare(`
       SELECT COUNT(*) AS total FROM notes n
       INNER JOIN people p ON p.id = n.person_id
-      WHERE p.workspace_id = ?
+      WHERE p.workspace_id = ? AND p.archived_at IS NULL
     `).get(workspaceId) as { total: number }
     return row.total
   })
@@ -68,7 +68,7 @@ export function registerNotesHandlers(): void {
         SELECT n.person_id AS personId, COUNT(*) AS total
         FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ?
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL
         GROUP BY n.person_id
       `)
       .all(workspaceId) as Array<{ personId: string; total: number }>
@@ -82,7 +82,7 @@ export function registerNotesHandlers(): void {
         SELECT n.id, n.person_id AS personId, n.sentiment, n.note, n.timestamp
         FROM notes n
         INNER JOIN people p ON p.id = n.person_id
-        WHERE p.workspace_id = ? AND (n.note LIKE ? OR p.name LIKE ?)
+        WHERE p.workspace_id = ? AND p.archived_at IS NULL AND (n.note LIKE ? OR p.name LIKE ?)
         ORDER BY n.timestamp DESC
       `)
       .all(workspaceId, like, like) as Note[]
@@ -122,8 +122,10 @@ export function registerNotesHandlers(): void {
       if (!note?.trim())                         throw new Error('Note is required')
 
       const db = getDb()
-      const personExists = db.prepare('SELECT id FROM people WHERE id = ?').get(personId)
-      if (!personExists) throw new Error('Unknown person')
+      const person = db.prepare('SELECT archived_at AS archivedAt FROM people WHERE id = ?')
+        .get(personId) as { archivedAt: string | null } | undefined
+      if (!person) throw new Error('Unknown person')
+      if (person.archivedAt) throw new Error('Cannot add a note to an archived person')
 
       const n: Note = {
         id: uuid(),
@@ -171,8 +173,10 @@ export function registerNotesHandlers(): void {
       const newPersonId = personId ?? existing.personId
 
       if (newPersonId !== existing.personId) {
-        const personExists = db.prepare('SELECT id FROM people WHERE id = ?').get(newPersonId)
-        if (!personExists) throw new Error('Unknown person')
+        const target = db.prepare('SELECT archived_at AS archivedAt FROM people WHERE id = ?')
+          .get(newPersonId) as { archivedAt: string | null } | undefined
+        if (!target) throw new Error('Unknown person')
+        if (target.archivedAt) throw new Error('Cannot move a note to an archived person')
         db.prepare('UPDATE notes SET sentiment = ?, note = ?, person_id = ? WHERE id = ?')
           .run(sentiment, trimmed, newPersonId, id)
       } else {

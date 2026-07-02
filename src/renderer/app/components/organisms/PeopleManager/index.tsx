@@ -7,9 +7,12 @@ import { Input } from '../../atoms/Input'
 
 interface Props {
   people: Person[]
+  archivedPeople: Person[]
   noteCountById: Record<string, number>
   onAdd: (name: string) => Promise<void>
   onRename: (id: string, name: string) => Promise<void>
+  onArchive: (id: string) => Promise<void>
+  onRestore: (id: string) => Promise<void>
   onRemove: (id: string) => Promise<void>
 }
 
@@ -99,11 +102,50 @@ const ConfirmText = styled.span<{ $error?: boolean }>`
   color: ${({ $error, theme }) => $error ? theme.colors.danger : theme.colors.text.muted};
 `
 
+const ArchiveToggle = styled.button`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['2']};
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.text.secondary};
+  font-family: ${({ theme }) => theme.typography.fontFamily};
+  font-size: ${({ theme }) => theme.typography.size.md};
+  font-weight: ${({ theme }) => theme.typography.weight.semibold};
+  margin-bottom: ${({ theme }) => theme.spacing['3']};
+  &:hover { color: ${({ theme }) => theme.colors.text.primary}; }
+`
+
+const Chevron = styled.span<{ $open: boolean }>`
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.12s ease;
+  transform: rotate(${({ $open }) => ($open ? '90deg' : '0deg')});
+`
+
+const ArchivedMeta = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  color: ${({ theme }) => theme.colors.text.muted};
+`
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove }: Props) {
+function formatArchivedDate(iso?: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+export function PeopleManager({ people, archivedPeople, noteCountById, onAdd, onRename, onArchive, onRestore, onRemove }: Props) {
   const [name, setName] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const [archivingId, setArchivingId] = useState<string | null>(null)
+  const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -125,6 +167,24 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
       setRemoveError('Could not remove person. Please try again.')
     } finally {
       setRemoving(false)
+    }
+  }
+
+  const handleArchive = async (id: string) => {
+    setArchivingId(id)
+    try {
+      await onArchive(id)
+    } finally {
+      setArchivingId(null)
+    }
+  }
+
+  const handleRestore = async (id: string) => {
+    setRestoringId(id)
+    try {
+      await onRestore(id)
+    } finally {
+      setRestoringId(null)
     }
   }
 
@@ -239,6 +299,14 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
                         <Button $variant="ghost" $size="sm" onClick={() => startRename(p)}>
                           Rename
                         </Button>
+                        <Button
+                          $variant="ghost"
+                          $size="sm"
+                          onClick={() => handleArchive(p.id)}
+                          disabled={archivingId === p.id}
+                        >
+                          Archive
+                        </Button>
                         <Button $variant="danger" $size="sm" onClick={() => setConfirmRemoveId(p.id)}>
                           Remove
                         </Button>
@@ -267,6 +335,55 @@ export function PeopleManager({ people, noteCountById, onAdd, onRename, onRemove
           </List>
         )}
       </div>
+
+      {archivedPeople.length > 0 && (
+        <div>
+          <ArchiveToggle onClick={() => setShowArchived((s) => !s)}>
+            <Chevron $open={showArchived}>▶</Chevron>
+            Archived ({archivedPeople.length})
+          </ArchiveToggle>
+          {showArchived && (
+            <List>
+              {archivedPeople.map((p) => (
+                <div key={p.id}>
+                  <PersonRow>
+                    <Avatar name={p.name} size={32} />
+                    <PersonName>{p.name}</PersonName>
+                    <ArchivedMeta>
+                      {p.archivedAt ? `Archived ${formatArchivedDate(p.archivedAt)}` : 'Archived'}
+                    </ArchivedMeta>
+                    <Actions>
+                      <Button
+                        $size="sm"
+                        onClick={() => handleRestore(p.id)}
+                        disabled={restoringId === p.id}
+                      >
+                        Restore
+                      </Button>
+                      <Button $variant="danger" $size="sm" onClick={() => setConfirmRemoveId(p.id)}>
+                        Remove
+                      </Button>
+                    </Actions>
+                  </PersonRow>
+                  {confirmRemoveId === p.id && (
+                    <ConfirmRow>
+                      <ConfirmText $error={!!removeError}>
+                        {removeError || `Permanently delete ${p.name} and all their notes? This cannot be undone.`}
+                      </ConfirmText>
+                      <Button $variant="danger" $size="sm" onClick={() => handleRemove(p.id)} disabled={removing}>
+                        Confirm
+                      </Button>
+                      <Button $variant="ghost" $size="sm" onClick={() => { setConfirmRemoveId(null); setRemoveError('') }} disabled={removing}>
+                        Cancel
+                      </Button>
+                    </ConfirmRow>
+                  )}
+                </div>
+              ))}
+            </List>
+          )}
+        </div>
+      )}
     </Wrapper>
   )
 }

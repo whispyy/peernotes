@@ -1,0 +1,58 @@
+src/main/ipc/notes.ts
+  s_f04fc3ebafceb8::t_f2cf79438b79ac 85
+  s_f04fc3ebafceb8::t_02601e8e49ceed 21
+  s_f04fc3ebafceb8::t_46f3cfab97bbcd 37,45,53,60
+  s_f04fc3ebafceb8::t_d1ae2dd38f4d7b 125-128
+  s_f04fc3ebafceb8::t_3216b0ce385e4b 176-179
+  s_f04fc3ebafceb8::t_cce6dc8978b521 71
+src/renderer/app/components/organisms/PeopleManager/index.tsx
+  s_f04fc3ebafceb8::t_aa48f1962f699f 135-142,146-148
+  s_f04fc3ebafceb8::t_aaac3bdbb280cd 348-381
+  s_f04fc3ebafceb8::t_362c03c4cfab40 10,14-15
+  s_f04fc3ebafceb8::t_20d423e629d2ab 173-190
+  s_f04fc3ebafceb8::t_76dc7806eae4fc 302-309
+  s_f04fc3ebafceb8::t_0ba30e45d41873 338-347,382-386
+  s_f04fc3ebafceb8::t_f86e07cb1b3141 105-132
+  s_f04fc3ebafceb8::t_46a325d492847b 149
+src/main/store/db.ts
+  s_f04fc3ebafceb8::t_2c55d9e8c696aa 203-215
+src/main/ipc/import.ts
+  s_f04fc3ebafceb8::t_5fa85685db2f41 35,40
+src/renderer/app/hooks/usePeople.ts
+  s_f04fc3ebafceb8::t_4d4087944c9ccc 6,10-14,16
+  s_f04fc3ebafceb8::t_b56ae5a025b480 38-61,65,69-70,73
+src/renderer/app/globals.d.ts
+  s_f04fc3ebafceb8::t_1434409ca1e2c6 27,30-31
+src/renderer/app/App.tsx
+  s_f04fc3ebafceb8::t_6f78e91e236688 192
+  s_f04fc3ebafceb8::t_b26925d61bc435 299,303-304
+src/shared/types.ts
+  s_f04fc3ebafceb8::t_df6274a116c539 20-21
+  s_f04fc3ebafceb8::t_bfa3dd816d53d4 89
+src/main/ipc/export.ts
+  s_f04fc3ebafceb8::t_2c4c4fa6fc308a 41
+src/preload/index.ts
+  s_f04fc3ebafceb8::t_3eb8e25ea4bea4 24-25,29-30
+src/main/ipc/people.ts
+  s_f04fc3ebafceb8::t_94349f41a8fce2 85
+  s_f04fc3ebafceb8::t_3a73a4a4be4cb5 7,12-18
+  s_f04fc3ebafceb8::t_095dc87f63a73c 4
+  s_f04fc3ebafceb8::t_5d85786f6e464d 75
+  s_f04fc3ebafceb8::t_5c68f1d832db28 68-74,76-84,86-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "11ac9d5827937d44664815b46f3e93ffd2894990",
+  "prompts": {},
+  "sessions": {
+    "s_f04fc3ebafceb8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "842647af-2af3-46e9-b989-f53adc201f87",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

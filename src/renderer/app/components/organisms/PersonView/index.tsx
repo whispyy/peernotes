@@ -25,7 +25,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>
   onAddNote: (payload: { personId: string; sentiment: 'positive' | 'neutral' | 'negative'; note: string }) => Promise<Note>
   onEdit?: (note: Note) => void
-  onExpand?: (note: Note) => void
+  onExpand?: (note: Note, list: Note[]) => void
   searchQuery: string
   isSearching: boolean
 }
@@ -706,7 +706,7 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
                               showPerson={false}
                               onDelete={handleDelete}
                               onEdit={onEdit}
-                              onExpand={onExpand}
+                              onExpand={onExpand ? (n) => onExpand(n, personNotes) : undefined}
                               highlight={searchQuery}
                             />
                           </VirtualNoteWrapper>

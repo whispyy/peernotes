@@ -1,0 +1,32 @@
+src/renderer/app/App.tsx
+  s_9a97cd34641ec6::t_321e503e409056 342-344,346-347
+  s_9a97cd34641ec6::t_ce7a8b6894130e 183
+  s_9a97cd34641ec6::t_cde8eb0cb6722f 220-224
+  s_9a97cd34641ec6::t_839f4738e591d0 282
+  s_9a97cd34641ec6::t_1997432b5fab3e 297
+src/renderer/app/components/organisms/NoteExpandedModal/index.tsx
+  s_9a97cd34641ec6::t_cbfecca8878574 397-398,514,555-556,617
+  s_9a97cd34641ec6::t_00bb400c30b7c9 1-3,6,13-14,16-18,21-34,44,47-55,58,62,67-96,118-190,207-214,217,221-237,239,248,274,329-396,465,472-475,508-513,516-520,522-554,557-573,577-580,583,585,587-588,592,605-616,640-651,656-676,678-690,693-733,735-742
+src/renderer/app/components/organisms/PersonView/index.tsx
+  s_9a97cd34641ec6::t_e946e01c6655a9 709
+  s_9a97cd34641ec6::t_3924ebb204f500 28
+src/renderer/app/components/organisms/Timeline/index.tsx
+  s_9a97cd34641ec6::t_2b4c00af8267c7 20
+  s_9a97cd34641ec6::t_32410d010d6373 146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d4fa8bc77f0d6a8d56db5f9bdf6a40e9aaed0302",
+  "prompts": {},
+  "sessions": {
+    "s_9a97cd34641ec6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d052c712-9006-4912-8058-7678ccbc152a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

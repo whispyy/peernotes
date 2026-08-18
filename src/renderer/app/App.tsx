@@ -180,6 +180,7 @@ export function App({ mode, setThemeMode }: Props) {
   const [addNoteOpen, setAddNoteOpen] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [expandedNote, setExpandedNote] = useState<Note | null>(null)
+  const [expandedList, setExpandedList] = useState<Note[]>([])
   const [exportOpen, setExportOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -215,6 +216,11 @@ export function App({ mode, setThemeMode }: Props) {
   }
 
   const showSearch = activeTab !== 'settings'
+
+  const handleExpand = (note: Note, list: Note[]) => {
+    setExpandedNote(note)
+    setExpandedList(list)
+  }
 
   return (
     <>
@@ -273,7 +279,7 @@ export function App({ mode, setThemeMode }: Props) {
               peopleById={peopleById}
               onDelete={removeNote}
               onEdit={setEditingNote}
-              onExpand={setExpandedNote}
+              onExpand={handleExpand}
               searchQuery={searchQuery}
               hasMore={hasMore && !isSearching}
               onLoadMore={loadMore}
@@ -288,7 +294,7 @@ export function App({ mode, setThemeMode }: Props) {
               onDelete={removeNote}
               onAddNote={addNote}
               onEdit={setEditingNote}
-              onExpand={setExpandedNote}
+              onExpand={handleExpand}
               searchQuery={searchQuery}
               isSearching={isSearching}
             />
@@ -333,8 +339,12 @@ export function App({ mode, setThemeMode }: Props) {
       {expandedNote && (
         <NoteExpandedModal
           note={expandedNote}
-          person={peopleById[expandedNote.personId]}
+          peopleById={peopleById}
+          notes={expandedList}
+          onNavigate={setExpandedNote}
           onClose={() => setExpandedNote(null)}
+          onEdit={(n) => { setExpandedNote(null); setEditingNote(n) }}
+          onDelete={(id) => { setExpandedNote(null); removeNote(id) }}
         />
       )}
       {exportOpen && workspaceId && (

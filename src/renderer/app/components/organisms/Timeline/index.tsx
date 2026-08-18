@@ -17,7 +17,7 @@ interface Props {
   peopleById: Record<string, Person>
   onDelete: (id: string) => void
   onEdit?: (note: Note) => void
-  onExpand?: (note: Note) => void
+  onExpand?: (note: Note, list: Note[]) => void
   searchQuery?: string
   hasMore?: boolean
   onLoadMore?: () => Promise<void>
@@ -143,7 +143,7 @@ export function Timeline({ notes, peopleById, onDelete, onEdit, onExpand, search
                       showPerson
                       onDelete={onDelete}
                       onEdit={onEdit}
-                      onExpand={onExpand}
+                      onExpand={onExpand ? (n) => onExpand(n, notes) : undefined}
                       highlight={searchQuery}
                     />
                   </VirtualNoteWrapper>

@@ -1,10 +1,14 @@
 import { ipcMain, safeStorage } from 'electron'
 import * as https from 'https'
+import * as fs from 'fs'
+import * as path from 'path'
+import { createHash } from 'crypto'
 import { getDb } from '../store/db'
 import { getActiveWorkspaceId } from './workspaces'
-import { notifyMainWindow, notifyPeopleUpdated, notifySyncUpdated } from '../windows'
+import { notifyKbUpdated, notifyMainWindow, notifyPeopleUpdated, notifySyncUpdated } from '../windows'
 import { buildExport } from './export'
 import { performImport } from './import'
+import { ensureKbDir, kbDir } from '../kb/paths'
 import type { SyncSettings, SyncDirection, ImportPayload } from '@shared/types'
 
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null
@@ -35,9 +39,17 @@ function getWorkspaceName(workspaceId: string): string {
   return row?.name ?? 'default'
 }
 
+function workspaceSlug(workspaceName: string): string {
+  return workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'default'
+}
+
 function effectivePath(baseDir: string, workspaceName: string): string {
-  const slug = workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'default'
-  return `${baseDir.replace(/\/+$/, '')}/${slug}.json`
+  return `${baseDir.replace(/\/+$/, '')}/${workspaceSlug(workspaceName)}.json`
+}
+
+/** Knowledge base docs sit next to the workspace JSON, in their own folder. */
+function kbRemoteDir(baseDir: string, workspaceName: string): string {
+  return `${baseDir.replace(/\/+$/, '')}/${workspaceSlug(workspaceName)}/kb`
 }
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
@@ -174,6 +186,108 @@ async function ghPut(
   if (status < 200 || status >= 300) throw new Error(parseGhError(data, status))
 }
 
+async function ghList(
+  token: string,
+  repo: string,
+  branch: string,
+  dirPath: string,
+): Promise<Array<{ name: string; sha: string; type: string }>> {
+  validateRepo(repo)
+  const { status, data } = await httpsRequest({
+    hostname: 'api.github.com',
+    path: `/repos/${encodePath(repo)}/contents/${encodePath(dirPath)}?ref=${encodeURIComponent(branch)}`,
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'peernotes-app',
+      Accept: 'application/vnd.github+json',
+    },
+  })
+  if (status === 404) return []
+  if (status < 200 || status >= 300) throw new Error(parseGhError(data, status))
+  const json = JSON.parse(data) as unknown
+  return Array.isArray(json) ? (json as Array<{ name: string; sha: string; type: string }>) : []
+}
+
+// ── Knowledge base mirror ─────────────────────────────────────────────────────
+
+/**
+ * Git's own object id for a file. Comparing it against the sha GitHub already
+ * returns in a directory listing tells us which docs changed without fetching
+ * any file content — one GET per sync, then a PUT only for docs that differ.
+ */
+function gitBlobSha(content: string): string {
+  const body = Buffer.from(content, 'utf-8')
+  return createHash('sha1')
+    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`, 'utf-8'), body]))
+    .digest('hex')
+}
+
+function localKbFiles(workspaceId: string): string[] {
+  try {
+    return fs.readdirSync(kbDir(workspaceId)).filter((f) => f.endsWith('.md'))
+  } catch {
+    return []
+  }
+}
+
+async function pushKbDocs(workspaceId: string, s: SyncSettings): Promise<number> {
+  if (!s.githubToken || !s.repo) return 0
+  const files = localKbFiles(workspaceId)
+  if (files.length === 0) return 0
+
+  const remoteDir = kbRemoteDir(s.filePath, getWorkspaceName(workspaceId))
+  const remote = await ghList(s.githubToken, s.repo, s.branch, remoteDir)
+  const remoteByName = new Map(remote.filter((e) => e.type === 'file').map((e) => [e.name, e.sha]))
+
+  let pushed = 0
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(kbDir(workspaceId), file), 'utf-8')
+    const remoteSha = remoteByName.get(file)
+    if (remoteSha === gitBlobSha(content)) continue
+
+    const remotePath = `${remoteDir}/${file}`
+    try {
+      await ghPut(s.githubToken, s.repo, s.branch, remotePath, content, remoteSha ?? null)
+    } catch (err) {
+      if (!(err instanceof GitHubConflictError)) throw err
+      const fresh = await ghGet(s.githubToken, s.repo, s.branch, remotePath)
+      await ghPut(s.githubToken, s.repo, s.branch, remotePath, content, fresh?.sha ?? null)
+    }
+    pushed += 1
+  }
+  return pushed
+}
+
+/**
+ * Remote wins. Docs are regenerable derivatives of the notes, which sync
+ * through the JSON, so a device that pulls newer notes re-files and regenerates
+ * anyway — that self-heals instead of needing merge logic.
+ */
+async function pullKbDocs(workspaceId: string, s: SyncSettings): Promise<number> {
+  if (!s.githubToken || !s.repo) return 0
+  const remoteDir = kbRemoteDir(s.filePath, getWorkspaceName(workspaceId))
+  const remote = await ghList(s.githubToken, s.repo, s.branch, remoteDir)
+  const docs = remote.filter((e) => e.type === 'file' && e.name.endsWith('.md'))
+  if (docs.length === 0) return 0
+
+  const dir = ensureKbDir(workspaceId)
+  let written = 0
+  for (const entry of docs) {
+    const localPath = path.join(dir, entry.name)
+    try {
+      if (fs.existsSync(localPath) && gitBlobSha(fs.readFileSync(localPath, 'utf-8')) === entry.sha) continue
+    } catch {
+      // unreadable local copy — fall through and overwrite it
+    }
+    const file = await ghGet(s.githubToken, s.repo, s.branch, `${remoteDir}/${entry.name}`)
+    if (!file?.content) continue
+    fs.writeFileSync(localPath, Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf-8'), 'utf-8')
+    written += 1
+  }
+  return written
+}
+
 // ── Core push / pull ──────────────────────────────────────────────────────────
 
 const GITHUB_SIZE_GUARD_BYTES = 900_000
@@ -195,6 +309,13 @@ async function doPush(
       attachments: exportData.attachments.map(({ data: _data, ...rest }) => ({ ...rest, data: '' }))
     }
     content = JSON.stringify(stripped, null, 2)
+  }
+
+  // Docs are regenerable, so a mirror failure must not fail the notes backup.
+  try {
+    await pushKbDocs(workspaceId, s)
+  } catch (err) {
+    console.warn('[sync] Knowledge base push failed:', err instanceof Error ? err.message : err)
   }
 
   const existing = await ghGet(s.githubToken, s.repo, s.branch, filePath)
@@ -241,6 +362,13 @@ async function doPull(
   const result = performImport(payload, workspaceId)
   if (result.imported > 0) notifyMainWindow()
   if (result.peopleCreated > 0) notifyPeopleUpdated()
+
+  try {
+    if (await pullKbDocs(workspaceId, s)) notifyKbUpdated()
+  } catch (err) {
+    console.warn('[sync] Knowledge base pull failed:', err instanceof Error ? err.message : err)
+  }
+
   return { imported: result.imported, skipped: result.skipped }
 }
 

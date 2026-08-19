@@ -12,6 +12,7 @@ import { registerSyncHandlers, cleanupSync } from './ipc/sync'
 import { registerICloudSyncHandlers, cleanupICloudSync } from './ipc/icloud-sync'
 import { registerAttachmentHandlers, isAuthorizedAttachmentPath } from './ipc/attachments'
 import { registerShortcutHandlers, getStoredShortcut, DEFAULT_SHORTCUT } from './ipc/shortcut'
+import { registerKbHandlers, backfillKb } from './ipc/kb'
 import { closeDb } from './store/db'
 import { checkForUpdates } from './updater'
 
@@ -85,6 +86,7 @@ app.whenReady().then(() => {
   registerAttachmentHandlers()
   registerSyncHandlers()
   registerICloudSyncHandlers()
+  registerKbHandlers()
   registerShortcutHandlers((newShortcut) => {
     tray?.setContextMenu(buildTrayMenu(newShortcut))
   })
@@ -101,6 +103,9 @@ app.whenReady().then(() => {
 
   // Silent update check at startup — will only prompt if a newer version exists
   setTimeout(() => checkForUpdates(true), 3000)
+
+  // File notes that were saved while offline or before AI was configured
+  setTimeout(backfillKb, 5000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

@@ -516,9 +516,11 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
 
   // AI settings state
   const [aiSettings, setAiSettings] = useState<AiSettings>({
-    enabled: false, apiKey: '', model: '', purposes: []
+    enabled: false, apiKey: '', model: '', purposes: [],
+    kbAutoFile: true, kbRegenThreshold: 3, kbClassifierModel: '',
   })
   const [editingPurposeId, setEditingPurposeId] = useState<string | 'new' | null>(null)
+  const [kbFolder, setKbFolder] = useState('')
 
   const [syncSettings, setSyncSettings] = useState<SyncSettings>({
     githubToken: null, githubTokenSet: false, repo: null, branch: 'main',
@@ -545,6 +547,11 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   useEffect(() => {
     window.api.ai.settings.get().then(setAiSettings)
   }, [])
+
+  useEffect(() => {
+    if (!workspaceId) { setKbFolder(''); return }
+    window.api.kb.status(workspaceId).then((s) => setKbFolder(s.folder))
+  }, [workspaceId])
 
   useEffect(() => {
     window.api.sync.getSettings().then(s => {
@@ -584,6 +591,23 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   const setModel = async (model: string) => {
     await window.api.ai.settings.set({ model })
     setAiSettings((s) => ({ ...s, model }))
+  }
+
+  const setKbAutoFile = async (kbAutoFile: boolean) => {
+    await window.api.ai.settings.set({ kbAutoFile })
+    setAiSettings((s) => ({ ...s, kbAutoFile }))
+  }
+
+  const setKbRegenThreshold = async (value: string) => {
+    const parsed = Number.parseInt(value, 10)
+    const kbRegenThreshold = Number.isFinite(parsed) ? Math.max(0, parsed) : 0
+    await window.api.ai.settings.set({ kbRegenThreshold })
+    setAiSettings((s) => ({ ...s, kbRegenThreshold }))
+  }
+
+  const setKbClassifierModel = async (kbClassifierModel: string) => {
+    await window.api.ai.settings.set({ kbClassifierModel })
+    setAiSettings((s) => ({ ...s, kbClassifierModel }))
   }
 
   const handleAddPurpose = async (name: string, systemPrompt: string) => {
@@ -827,6 +851,80 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
             </PurposeList>
           </Card>
         )}
+      </Section>
+
+      {/* ── Knowledge Base ─────────────────────────────────────────── */}
+      <Section>
+        <SectionLabel>Knowledge Base</SectionLabel>
+        <Card>
+          {!aiSettings.enabled ? (
+            <Row>
+              <RowMeta>
+                <RowTitle>Requires AI Summaries</RowTitle>
+                <RowDesc>Turn on AI Summaries above to have notes filed into topic documents.</RowDesc>
+              </RowMeta>
+            </Row>
+          ) : (
+            <>
+              <Row>
+                <RowMeta>
+                  <RowTitle>File notes automatically</RowTitle>
+                  <RowDesc>Each note you save is filed into one or two topics in the background</RowDesc>
+                </RowMeta>
+                <ToggleLabel>
+                  <ToggleInput
+                    type="checkbox"
+                    checked={aiSettings.kbAutoFile}
+                    onChange={(e) => setKbAutoFile(e.target.checked)}
+                  />
+                  <ToggleSlider />
+                </ToggleLabel>
+              </Row>
+              <RowDivider />
+              <InputRow>
+                <InputLabel>Rewrite a topic after N new notes</InputLabel>
+                <Input
+                  type="number"
+                  min="0"
+                  value={String(aiSettings.kbRegenThreshold)}
+                  onChange={(e) => setKbRegenThreshold(e.target.value)}
+                />
+              </InputRow>
+              <Row>
+                <RowMeta>
+                  <RowDesc>
+                    0 turns automatic rewriting off. Documents are always rewritten in full from their
+                    notes, so edits made by hand are not kept.
+                  </RowDesc>
+                </RowMeta>
+              </Row>
+              <RowDivider />
+              <InputRow>
+                <InputLabel>Filing model (optional)</InputLabel>
+                <Input
+                  value={aiSettings.kbClassifierModel}
+                  placeholder={aiSettings.model || 'defaults to the model above'}
+                  onChange={(e) => setKbClassifierModel(e.target.value)}
+                />
+              </InputRow>
+              <RowDivider />
+              <Row>
+                <RowMeta>
+                  <RowTitle>Documents folder</RowTitle>
+                  <RowDesc>{kbFolder || 'Select a workspace to see its folder'}</RowDesc>
+                </RowMeta>
+                <Button
+                  $variant="ghost"
+                  $size="sm"
+                  disabled={!workspaceId}
+                  onClick={() => workspaceId && window.api.kb.openFolder(workspaceId)}
+                >
+                  Open
+                </Button>
+              </Row>
+            </>
+          )}
+        </Card>
       </Section>
 
       {/* ── Data ───────────────────────────────────────────────────── */}

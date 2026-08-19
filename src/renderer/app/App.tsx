@@ -6,6 +6,7 @@ import { useWorkspaces } from './hooks/useWorkspaces'
 import { Timeline } from './components/organisms/Timeline'
 import { PersonView } from './components/organisms/PersonView'
 import { PeopleManager } from './components/organisms/PeopleManager'
+import { KnowledgeBase } from './components/organisms/KnowledgeBase'
 import { Settings } from './components/organisms/Settings'
 import { ExportModal } from './components/organisms/ExportModal'
 import { ImportModal } from './components/organisms/ImportModal'
@@ -15,7 +16,7 @@ import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
 import type { Note } from '@shared/types'
 import type { ThemeMode } from './hooks/useThemeMode'
 
-type Tab = 'timeline' | 'person' | 'people' | 'settings'
+type Tab = 'timeline' | 'person' | 'knowledge' | 'people' | 'settings'
 
 interface Props {
   mode: ThemeMode
@@ -215,11 +216,17 @@ export function App({ mode, setThemeMode }: Props) {
     }
   }
 
-  const showSearch = activeTab !== 'settings'
+  const showSearch = activeTab !== 'settings' && activeTab !== 'knowledge'
 
   const handleExpand = (note: Note, list: Note[]) => {
     setExpandedNote(note)
     setExpandedList(list)
+  }
+
+  // Knowledge base citations can point at notes outside the loaded page
+  const handleOpenNoteById = async (noteId: string) => {
+    const note = notes.find((n) => n.id === noteId) ?? (await window.api.notes.get(noteId))
+    if (note) handleExpand(note, [note])
   }
 
   return (
@@ -242,6 +249,9 @@ export function App({ mode, setThemeMode }: Props) {
             </Tab>
             <Tab $active={activeTab === 'person'} onClick={() => setActiveTab('person')}>
               By Person
+            </Tab>
+            <Tab $active={activeTab === 'knowledge'} onClick={() => setActiveTab('knowledge')}>
+              Knowledge
             </Tab>
             <Tab $active={activeTab === 'people'} onClick={() => setActiveTab('people')}>
               Team
@@ -297,6 +307,14 @@ export function App({ mode, setThemeMode }: Props) {
               onExpand={handleExpand}
               searchQuery={searchQuery}
               isSearching={isSearching}
+            />
+          )}
+          {activeTab === 'knowledge' && (
+            <KnowledgeBase
+              workspaceId={workspaceId}
+              onOpenNote={handleOpenNoteById}
+              onOpenSettings={() => setActiveTab('settings')}
+              onAddNote={() => setAddNoteOpen(true)}
             />
           )}
           {activeTab === 'people' && (

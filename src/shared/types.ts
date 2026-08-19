@@ -142,4 +142,65 @@ export interface AiSettings {
   apiKey: string
   model: string
   purposes: AiPurposePreset[]
+  /** file each new note into knowledge base topics as it is saved */
+  kbAutoFile: boolean
+  /** unreflected notes needed before a topic doc rewrites itself; 0 disables */
+  kbRegenThreshold: number
+  /** cheaper model for per-note filing; empty falls back to `model` */
+  kbClassifierModel: string
+}
+
+// ── Knowledge base ────────────────────────────────────────────────────────────
+
+export interface KbTopic {
+  slug: string
+  topic: string
+  noteCount: number
+  /** notes filed under the topic that its body doesn't reflect yet */
+  pendingCount: number
+  generatedAt: string | null
+  stale: boolean
+}
+
+export interface KbStatus {
+  topics: KbTopic[]
+  /** live notes in the workspace — what a rebuild would re-file */
+  noteCount: number
+  unfiledCount: number
+  staleCount: number
+  folder: string
+}
+
+export interface KbDocContent {
+  slug: string
+  topic: string
+  body: string
+  noteIds: string[]
+  generatedAt: string | null
+  stale: boolean
+  pendingCount: number
+}
+
+export interface KbAskResult {
+  answer: string
+  sources: Array<{ slug: string; topic: string }>
+}
+
+export interface KbFileResult {
+  filed: number
+  failed: number
+}
+
+export interface KbRebuildResult {
+  notes: number
+  filed: number
+  failed: number
+  topics: number
+  regenerated: number
+  regenFailed: Array<{ slug: string; error: string }>
+}
+
+export interface KbRegenerateResult {
+  regenerated: number
+  failed: Array<{ slug: string; error: string }>
 }

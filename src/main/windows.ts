@@ -106,6 +106,10 @@ export function notifySyncUpdated(): void {
   mainWindow?.webContents.send('sync:updated')
 }
 
+export function notifyKbUpdated(): void {
+  mainWindow?.webContents.send('kb:updated')
+}
+
 export function toggleQuickEntry(): void {
   if (!quickEntryWindow || quickEntryWindow.isDestroyed()) {
     createQuickEntryWindow()

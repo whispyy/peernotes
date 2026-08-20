@@ -1,0 +1,34 @@
+src/renderer/app/components/organisms/PeopleView/index.tsx
+  s_165b72997d9a3e::t_d53337fddcb4e4 22
+  s_165b72997d9a3e::t_6706c1cd1c214d 1-21,23-209
+src/renderer/app/App.tsx
+  s_165b72997d9a3e::t_00afcb6a64b051 294-295,297,301-302,307-311
+  s_165b72997d9a3e::t_36c27644167234 7
+  s_165b72997d9a3e::t_2268a0ce166867 249-250
+  s_165b72997d9a3e::t_50f2f6d430b99d 18
+src/renderer/app/components/organisms/PersonFeed/index.tsx
+  s_165b72997d9a3e::t_d4a58d6c30fd5b 38,51,199
+  s_165b72997d9a3e::t_0c8b261322d5a1 303
+  s_165b72997d9a3e::t_aaad35791623d3 20-21
+src/renderer/app/components/organisms/PeopleManager/index.tsx
+  s_165b72997d9a3e::t_d53337fddcb4e4 12
+README.md
+  s_165b72997d9a3e::t_5147cf6f2b2380 275
+  s_165b72997d9a3e::t_196ab564593f40 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4152b5c7043827f2fa180775052001ac6a58e366",
+  "prompts": {},
+  "sessions": {
+    "s_165b72997d9a3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65242115-e109-426e-8ed8-6eff99171cba",
+        "model": "claude-opus-5"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

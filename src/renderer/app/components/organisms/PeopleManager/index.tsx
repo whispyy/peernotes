@@ -9,7 +9,7 @@ interface Props {
   people: Person[]
   archivedPeople: Person[]
   noteCountById: Record<string, number>
-  onAdd: (name: string) => Promise<void>
+  onAdd: (name: string) => Promise<unknown>
   onRename: (id: string, name: string) => Promise<void>
   onArchive: (id: string) => Promise<void>
   onRestore: (id: string) => Promise<void>
@@ -23,7 +23,6 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['6']};
-  padding-top: ${({ theme }) => theme.spacing['6']};
 `
 
 const AddRow = styled.form`

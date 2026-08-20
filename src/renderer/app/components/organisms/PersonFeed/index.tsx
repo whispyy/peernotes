@@ -4,7 +4,6 @@ import styled, { createGlobalStyle, css, keyframes } from 'styled-components'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Note, Person, AiPurposePreset } from '@shared/types'
-import { Avatar } from '../../atoms/Avatar'
 import { Button } from '../../atoms/Button'
 import { NoteCard } from '../../molecules/NoteCard'
 import { LoadMore } from '../../molecules/LoadMore'
@@ -18,7 +17,8 @@ type VirtualRow =
   | { kind: 'note'; note: Note }
 
 interface Props {
-  people: Person[]
+  selectedId: string | null
+  selectedPerson: Person | undefined
   workspaceId: string | null
   countByPerson: Record<string, number>
   peopleById: Record<string, Person>
@@ -32,56 +32,10 @@ interface Props {
 
 // ─── Layout ──────────────────────────────────────────────────────────────────
 
-const Layout = styled.div`
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: ${({ theme }) => theme.spacing['6']};
-  height: 100%;
-  padding-top: ${({ theme }) => theme.spacing['6']};
-`
-
-const Sidebar = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing['1']};
-`
-
-const PersonRow = styled.button<{ $active: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing['2.5']};
-  padding: ${({ theme }) => theme.spacing['2']} ${({ theme }) => theme.spacing['3']};
-  border-radius: ${({ theme }) => theme.radius.md};
-  border: none;
-  background: ${({ $active, theme }) => ($active ? theme.colors.bg.tertiary : 'transparent')};
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background 0.1s ease;
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.bg.secondary};
-  }
-`
-
-const PersonName = styled.span`
-  font-size: ${({ theme }) => theme.typography.size.base};
-  font-weight: ${({ theme }) => theme.typography.weight.medium};
-  color: ${({ theme }) => theme.colors.text.primary};
-`
-
-const NoteCount = styled.span`
-  margin-left: auto;
-  font-size: ${({ theme }) => theme.typography.size.xs};
-  color: ${({ theme }) => theme.colors.text.muted};
-  background: ${({ theme }) => theme.colors.bg.tertiary};
-  padding: 1px 6px;
-  border-radius: ${({ theme }) => theme.radius.full};
-`
-
 const FeedColumn = styled.div`
   display: flex;
   flex-direction: column;
+  flex: 1;
   overflow: hidden;
   min-height: 0;
 `
@@ -346,8 +300,7 @@ function formatDateLabel(iso: string) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function PersonView({ people, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit, onExpand, searchQuery, isSearching }: Props) {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+export function PersonFeed({ selectedId, selectedPerson, workspaceId, countByPerson, peopleById, onDelete, onAddNote, onEdit, onExpand, searchQuery, isSearching }: Props) {
   const { aiSettings } = useAiSettings()
 
   // Per-person paginated notes
@@ -375,18 +328,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
 
   const feedRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-
-  // Set initial selection when people list first loads
-  useEffect(() => {
-    if (selectedId === null && people.length > 0) setSelectedId(people[0].id)
-  }, [people, selectedId])
-
-  // Fall back to first person when the selected person is deleted
-  useEffect(() => {
-    if (selectedId !== null && !people.find((p) => p.id === selectedId)) {
-      setSelectedId(people[0]?.id ?? null)
-    }
-  }, [people, selectedId])
 
   // Fetch notes for selected person
   useEffect(() => {
@@ -484,7 +425,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
     [onAddNote, selectedId]
   )
 
-  const selectedPerson = people.find((p) => p.id === selectedId)
   const groups = useMemo(() => groupByMonth(personNotes), [personNotes])
 
   const rows = useMemo<VirtualRow[]>(() => {
@@ -592,17 +532,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
   return (
     <>
     <ArcProperty />
-    <Layout>
-      <Sidebar>
-        {people.map((p) => (
-          <PersonRow key={p.id} $active={p.id === selectedId} onClick={() => setSelectedId(p.id)}>
-            <Avatar name={p.name} size={28} />
-            <PersonName>{p.name}</PersonName>
-            <NoteCount>{countByPerson[p.id] ?? 0}</NoteCount>
-          </PersonRow>
-        ))}
-      </Sidebar>
-
       <FeedColumn>
         {showControls && (
           <FeedControls>
@@ -723,7 +652,6 @@ export function PersonView({ people, workspaceId, countByPerson, peopleById, onD
           )}
         </Feed>
       </FeedColumn>
-    </Layout>
     </>
   )
 }

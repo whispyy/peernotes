@@ -8,7 +8,7 @@ A private macOS app to log honest notes about your teammates. Capture moments as
 - **Global shortcut** — Press `⌃⌘⌥Space` from anywhere to pop up a quick-entry panel. No app-switching required.
 - **In-app note button** — `+ Note` button in the title bar for mouse-driven workflows.
 - **Sentiment tagging** — Every note is tagged positive, neutral, or negative with colour-coded badges.
-- **Two views** — A global timeline and a per-person feed grouped by month.
+- **Two views** — A global **Timeline** of every note, and a **People** tab where the sidebar doubles as the person picker and the entry point to **Manage team** (add, rename, archive, restore, remove). Selecting a person shows their feed grouped by month.
 - **Full-text search** — Search across note content and people names from the title bar.
 - **Export** — Export all notes or narrow to a date range, scoped to the active workspace. Copy JSON to clipboard or save to file.
 - **Import** — Restore from a previous export file into the active workspace. Duplicate notes and people are silently skipped.
@@ -272,7 +272,7 @@ AI Summaries are powered by [OpenRouter](https://openrouter.ai), which gives you
 
 ### Generating a summary
 
-1. Switch to the **By Person** tab and select a person.
+1. Switch to the **People** tab and select a person.
 2. Click **✦ Summarize** in the top-right of the feed.
 3. Pick a date range and a purpose preset, then click **✦ Generate**.
 4. The summary appears as a banner above the notes. You can **Dismiss** it, **Regenerate** with different settings, or **Save as note** to persist it as a neutral note with a `[AI Summary: …]` label.

@@ -4,8 +4,7 @@ import { usePeople } from './hooks/usePeople'
 import { useNotes } from './hooks/useNotes'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import { Timeline } from './components/organisms/Timeline'
-import { PersonView } from './components/organisms/PersonView'
-import { PeopleManager } from './components/organisms/PeopleManager'
+import { PeopleView } from './components/organisms/PeopleView'
 import { KnowledgeBase } from './components/organisms/KnowledgeBase'
 import { Settings } from './components/organisms/Settings'
 import { ExportModal } from './components/organisms/ExportModal'
@@ -16,7 +15,7 @@ import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
 import type { Note } from '@shared/types'
 import type { ThemeMode } from './hooks/useThemeMode'
 
-type Tab = 'timeline' | 'person' | 'knowledge' | 'people' | 'settings'
+type Tab = 'timeline' | 'people' | 'knowledge' | 'settings'
 
 interface Props {
   mode: ThemeMode
@@ -247,14 +246,11 @@ export function App({ mode, setThemeMode }: Props) {
             <Tab $active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')}>
               Timeline
             </Tab>
-            <Tab $active={activeTab === 'person'} onClick={() => setActiveTab('person')}>
-              By Person
+            <Tab $active={activeTab === 'people'} onClick={() => setActiveTab('people')}>
+              People
             </Tab>
             <Tab $active={activeTab === 'knowledge'} onClick={() => setActiveTab('knowledge')}>
               Knowledge
-            </Tab>
-            <Tab $active={activeTab === 'people'} onClick={() => setActiveTab('people')}>
-              Team
             </Tab>
             <Tab $active={activeTab === 'settings'} onClick={() => setActiveTab('settings')}>
               Settings
@@ -295,18 +291,24 @@ export function App({ mode, setThemeMode }: Props) {
               onLoadMore={loadMore}
             />
           )}
-          {activeTab === 'person' && (
-            <PersonView
+          {activeTab === 'people' && (
+            <PeopleView
               people={people}
+              archivedPeople={archivedPeople}
               workspaceId={workspaceId}
               countByPerson={countByPerson}
               peopleById={peopleById}
+              searchQuery={searchQuery}
+              isSearching={isSearching}
               onDelete={removeNote}
               onAddNote={addNote}
               onEdit={setEditingNote}
               onExpand={handleExpand}
-              searchQuery={searchQuery}
-              isSearching={isSearching}
+              onAdd={addPerson}
+              onRename={renamePerson}
+              onArchive={archivePerson}
+              onRestore={restorePerson}
+              onRemove={removePerson}
             />
           )}
           {activeTab === 'knowledge' && (
@@ -315,18 +317,6 @@ export function App({ mode, setThemeMode }: Props) {
               onOpenNote={handleOpenNoteById}
               onOpenSettings={() => setActiveTab('settings')}
               onAddNote={() => setAddNoteOpen(true)}
-            />
-          )}
-          {activeTab === 'people' && (
-            <PeopleManager
-              people={people}
-              archivedPeople={archivedPeople}
-              noteCountById={countByPerson}
-              onAdd={addPerson}
-              onRename={renamePerson}
-              onArchive={archivePerson}
-              onRestore={restorePerson}
-              onRemove={removePerson}
             />
           )}
           {activeTab === 'settings' && (

@@ -21,8 +21,9 @@
   <div class="nav-inner">
     <span class="logo">Peer<span>notes</span></span>
     <div class="nav-links">
-      <a href="#features" class="nav-link">Features</a>
-      <a href="#how"      class="nav-link">How it works</a>
+      <a href="#features"  class="nav-link">Features</a>
+      <a href="#knowledge" class="nav-link">Knowledge</a>
+      <a href="#how"       class="nav-link">How it works</a>
       <a href="https://github.com/whispyy/peernotes" class="nav-link">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
@@ -81,8 +82,8 @@
             <div class="mockup-workspace-pill">Team Alpha ▾</div>
             <div class="mockup-tabs">
               <div class="mockup-tab active">Timeline</div>
-              <div class="mockup-tab">By Person</div>
-              <div class="mockup-tab">Team</div>
+              <div class="mockup-tab">People</div>
+              <div class="mockup-tab">Knowledge</div>
               <div class="mockup-tab">Settings</div>
             </div>
             <div class="mockup-tab-right">
@@ -203,7 +204,7 @@
       <div class="feature-card">
         <div class="feature-icon">⚡</div>
         <h3>Global shortcut</h3>
-        <p>Press <strong style="color:#F2F2F7">⌃⌘⌥Space</strong> from anywhere — your IDE, browser, Slack — and a note form appears instantly. Or use the <strong style="color:#F2F2F7">+ Note</strong> button inside the app. No context switching.</p>
+        <p>Press <strong style="color:#F2F2F7">⌃⌘⌥Space</strong> from anywhere — your IDE, browser, Slack — and a note form appears instantly. Rebind it to whatever you like in Settings, or use the <strong style="color:#F2F2F7">+ Note</strong> button inside the app. No context switching.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🎯</div>
@@ -212,13 +213,18 @@
       </div>
       <div class="feature-card">
         <div class="feature-icon">📅</div>
-        <h3>Two views, one picture</h3>
-        <p>A global timeline for the full story, and a per-person feed grouped by month for when you're writing a specific review. Full-text search across all notes.</p>
+        <h3>Timeline &amp; People</h3>
+        <p>A global timeline for the full story, and a <strong style="color:#F2F2F7">People</strong> tab where the sidebar is both the person picker and the door to managing your roster — add, rename, archive, restore, remove. Pick a name to get that person's feed grouped by month. Full-text search across every note.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📖</div>
+        <h3>Knowledge base</h3>
+        <p>Every note gets filed into a topic as you save it, and each topic becomes a short markdown article written from your own notes — with inline citations that jump straight back to the note they came from. Ask a question in plain language and get an answer drawn only from what you actually wrote.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">🖼</div>
         <h3>Image attachments</h3>
-        <p>Attach up to 5 photos to any note — ideal for whiteboard diagrams, screenshots, or visual evidence. Thumbnails display inline with a click-to-fullscreen lightbox. Images sync via iCloud and GitHub alongside your notes.</p>
+        <p>Attach up to 5 photos to any note — ideal for whiteboard diagrams, screenshots, or visual evidence. Thumbnails display inline with a click-to-fullscreen lightbox, and the image files travel with your notes through iCloud sync.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">⇅</div>
@@ -233,7 +239,105 @@
       <div class="feature-card">
         <div class="feature-icon">☁︎</div>
         <h3>GitHub Sync</h3>
-        <p>Back up your notes to any GitHub repository with one click. Push and pull the active workspace as a JSON file, or enable auto-sync to run silently in the background every 5 minutes to 24 hours. Your data, your repo.</p>
+        <p>Back up your notes to any GitHub repository with one click. Push and pull the active workspace as a JSON file — knowledge base articles are mirrored alongside it as readable markdown — or enable auto-sync to run silently in the background every 5 minutes to 24 hours. Your data, your repo.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⟳</div>
+        <h3>iCloud sync</h3>
+        <p>Switch it on and your workspace lives in a folder in iCloud Drive — pushed every 15 minutes and pulled the moment another Mac writes a change. Image attachments travel as real files, so your second machine gets the pictures too. No account, no server, no token.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Knowledge spotlight ────────────────────────────── -->
+<section class="section" id="knowledge">
+  <div class="container">
+    <div class="features-header">
+      <h2>Your notes, turned into a wiki.</h2>
+      <p>Every note is filed into a topic as you save it. Every topic writes itself from those notes — and cites the one it came from.</p>
+    </div>
+
+    <div class="mockup-wrapper">
+      <div class="mockup-glow"></div>
+      <div class="mockup-window">
+        <!-- Titlebar -->
+        <div class="mockup-titlebar">
+          <div class="traffic-lights">
+            <div class="tl tl-red"></div>
+            <div class="tl tl-yellow"></div>
+            <div class="tl tl-green"></div>
+          </div>
+          <div class="mockup-workspace-pill">Team Alpha ▾</div>
+          <div class="mockup-tabs">
+            <div class="mockup-tab">Timeline</div>
+            <div class="mockup-tab">People</div>
+            <div class="mockup-tab active">Knowledge</div>
+            <div class="mockup-tab">Settings</div>
+          </div>
+          <div class="mockup-tab-right">
+            <div class="mockup-btn-accent">+ Note</div>
+          </div>
+        </div>
+
+        <!-- Knowledge body -->
+        <div class="kb-body">
+          <div class="kb-sidebar">
+            <div class="kb-sidebar-label">Topics</div>
+            <div class="kb-topic active">
+              <span class="kb-topic-name">Onboarding Friction</span>
+              <span class="kb-count">7</span>
+            </div>
+            <div class="kb-topic">
+              <span class="kb-stale-dot"></span>
+              <span class="kb-topic-name">Deploy Confidence</span>
+              <span class="kb-count">5</span>
+            </div>
+            <div class="kb-topic">
+              <span class="kb-topic-name">Incident Response</span>
+              <span class="kb-count">4</span>
+            </div>
+            <div class="kb-topic">
+              <span class="kb-topic-name">Mentoring Habits</span>
+              <span class="kb-count">3</span>
+            </div>
+          </div>
+
+          <div class="kb-main">
+            <div class="kb-ask-row">
+              <div class="kb-ask-input">What do people keep saying about onboarding?</div>
+              <div class="mockup-btn-accent">✦ Ask</div>
+            </div>
+
+            <div class="kb-answer">
+              <div class="kb-answer-header">Answer</div>
+              <div class="kb-answer-text">
+                Setup docs are the recurring complaint — two hires hit the same stale
+                instructions in their first week, and both lost most of a day to it.
+              </div>
+              <div class="kb-chips">
+                <span class="kb-chip">Onboarding Friction</span>
+                <span class="kb-chip">Mentoring Habits</span>
+              </div>
+            </div>
+
+            <div class="kb-doc">
+              <div class="kb-doc-title">Onboarding Friction</div>
+              <div class="kb-doc-meta">7 notes · rewritten 2 days ago</div>
+              <p class="kb-doc-lead">
+                New joiners lose their first day to environment setup rather than to the codebase.
+              </p>
+              <div class="kb-h2">What we know</div>
+              <ul class="kb-bullets">
+                <li>Local setup docs are stale — the same step fails twice
+                  (<span class="kb-cite">Alice Smith · May 2</span>,
+                  <span class="kb-cite">Ben Jones · Jun 14</span>)</li>
+                <li>Pairing on day one fixes it, but nobody owns scheduling it
+                  (<span class="kb-cite">Clara Lee · Jun 28</span>)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -257,7 +361,7 @@
       <div class="how-step">
         <div class="step-number">3</div>
         <h3>Summarize when it counts</h3>
-        <p>Open the dashboard at review time. Jump to a person's feed, hit <strong style="color:#F2F2F7">✦ Summarize</strong>, pick a date range and a purpose — get an AI-generated summary ready to copy or save as a note.</p>
+        <p>Open the dashboard at review time. Jump to a person's feed, hit <strong style="color:#F2F2F7">✦ Summarize</strong>, pick a date range and a purpose — get an AI-generated summary ready to copy or save as a note. Or open <strong style="color:#F2F2F7">Knowledge</strong> and just ask.</p>
       </div>
     </div>
   </div>

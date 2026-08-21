@@ -501,7 +501,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
           months of entries.
         </EmptyText>
         <EmptyExample>“What do people keep saying about onboarding?”</EmptyExample>
-        <EmptyText>Switch on AI Summaries, add an OpenRouter key and a model, and it starts building.</EmptyText>
+        <EmptyText>Switch on AI in Settings, add an OpenRouter key and a model, and it starts building.</EmptyText>
         <Button $variant="primary" $size="sm" onClick={onOpenSettings}>
           Open Settings
         </Button>

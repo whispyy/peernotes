@@ -150,6 +150,19 @@ export interface AiSettings {
   kbClassifierModel: string
 }
 
+/** Outcome of checking the saved OpenRouter key against the provider. */
+export interface AiVerifyResult {
+  ok: boolean
+  /** key name as OpenRouter reports it */
+  label?: string
+  /** credits spent on the key */
+  usage?: number
+  /** credit ceiling; null when the key is uncapped */
+  limit?: number | null
+  /** why it failed, ready to show as-is */
+  error?: string
+}
+
 // ── Knowledge base ────────────────────────────────────────────────────────────
 
 export interface KbTopic {

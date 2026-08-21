@@ -167,7 +167,7 @@ export function registerKbHandlers(): void {
   ipcMain.handle('kb:file-unfiled', async (_e, workspaceId: string): Promise<KbFileResult> => {
     const config = readKbAiConfig()
     if (!isKbAiReady(config)) {
-      throw new Error('AI is not configured — set a key and model in Settings → AI Summaries.')
+      throw new Error('AI is not configured — set a key and model in Settings → AI.')
     }
     const { filed, failed, slugs } = await fileUnfiledNotes(workspaceId)
     if (slugs.length > 0) {

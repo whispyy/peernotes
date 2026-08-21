@@ -1,9 +1,19 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { getDb } from '../store/db'
-import type { AiSettings, AiPurposePreset } from '@shared/types'
+import { verifyApiKey } from '../kb/openrouter'
+import type { AiSettings, AiPurposePreset, AiVerifyResult } from '@shared/types'
 
 export function registerAiHandlers(): void {
+  // Verifies whatever is saved, not a draft — the key field persists on change,
+  // so this always reflects the key the rest of the app will actually use.
+  ipcMain.handle('ai:verify', (): Promise<AiVerifyResult> => {
+    const row = getDb()
+      .prepare(`SELECT value FROM ai_settings WHERE key = 'api_key'`)
+      .get() as { value: string } | undefined
+    return verifyApiKey(row?.value ?? '')
+  })
+
   ipcMain.handle('ai:settings:get', (): AiSettings => {
     const db = getDb()
     const rows = db.prepare('SELECT key, value FROM ai_settings').all() as { key: string; value: string }[]

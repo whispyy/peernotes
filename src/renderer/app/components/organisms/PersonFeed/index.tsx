@@ -454,11 +454,11 @@ export function PersonFeed({ selectedId, selectedPerson, workspaceId, countByPer
       return
     }
     if (!aiSettings.apiKey) {
-      setGenError('No API key configured. Set it in Settings → AI Summaries.')
+      setGenError('No API key configured. Set it in Settings → AI.')
       return
     }
     if (!aiSettings.model) {
-      setGenError('No model configured. Set it in Settings → AI Summaries.')
+      setGenError('No model configured. Set it in Settings → AI.')
       return
     }
 

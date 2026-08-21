@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
 
 declare global {
   interface Window {
@@ -83,6 +83,7 @@ declare global {
         onUpdated: (cb: () => void) => (() => void)
       }
       ai: {
+        verify: () => Promise<AiVerifyResult>
         settings: {
           get: () => Promise<AiSettings>
           set: (patch: {

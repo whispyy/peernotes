@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -131,6 +131,7 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
   ai: {
+    verify: (): Promise<AiVerifyResult> => ipcRenderer.invoke('ai:verify'),
     settings: {
       get: (): Promise<AiSettings> => ipcRenderer.invoke('ai:settings:get'),
       set: (patch: {

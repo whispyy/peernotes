@@ -70,7 +70,7 @@ export async function askKb(workspaceId: string, question: string): Promise<KbAs
   if (!trimmed) throw new Error('Ask a question first')
 
   const config = readKbAiConfig()
-  if (!isKbAiReady(config)) throw new Error('AI is not configured — set a key and model in Settings → AI Summaries.')
+  if (!isKbAiReady(config)) throw new Error('AI is not configured — set a key and model in Settings → AI.')
 
   const docs = listDocs(workspaceId)
   if (docs.length === 0) throw new Error('No knowledge base topics yet — file some notes first.')

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
-import type { AiPurposePreset, AiSettings, SyncSettings, SyncDirection, ICloudSyncSettings } from '@shared/types'
+import type { AiPurposePreset, AiSettings, AiVerifyResult, SyncSettings, SyncDirection, ICloudSyncSettings } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { Input } from '../../atoms/Input'
 import { TextArea } from '../../atoms/TextArea'
@@ -248,6 +248,30 @@ const InputLabel = styled.span`
   color: ${({ theme }) => theme.colors.text.secondary};
 `
 
+/** An input with a button beside it, sharing the InputRow's label. */
+const FieldRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing['2']};
+
+  > *:first-child { flex: 1; }
+`
+
+const FieldHint = styled.span`
+  font-size: ${({ theme }) => theme.typography.size.xs};
+  color: ${({ theme }) => theme.colors.text.muted};
+  line-height: ${({ theme }) => theme.typography.lineHeight.base};
+`
+
+/** Keeps a control at its natural width inside the column-flow InputRow. */
+const ShrinkField = styled.div`
+  display: flex;
+`
+
+const NarrowField = styled.div`
+  max-width: 110px;
+`
+
 const BackupPathPreview = styled.div`
   font-size: ${({ theme }) => theme.typography.size.xs};
   color: ${({ theme }) => theme.colors.text.tertiary};
@@ -361,6 +385,20 @@ const DIRECTION_OPTIONS: { value: SyncDirection; label: string }[] = [
   { value: 'pull', label: 'Pull only' },
   { value: 'both', label: 'Both' },
 ]
+
+/** Turns a successful verify into one line, degrading as fields go missing. */
+function describeKey(result: AiVerifyResult): string {
+  const parts = ['Connected']
+  if (result.label) parts.push(`key “${result.label}”`)
+  if (typeof result.usage === 'number') {
+    parts.push(
+      result.limit == null
+        ? `$${result.usage.toFixed(2)} used`
+        : `$${result.usage.toFixed(2)} of $${result.limit.toFixed(2)} used`
+    )
+  }
+  return parts.join(' · ')
+}
 
 function formatLastSynced(ts: number | null): string {
   if (!ts) return 'Never'
@@ -520,7 +558,8 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
     kbAutoFile: true, kbRegenThreshold: 3, kbClassifierModel: '',
   })
   const [editingPurposeId, setEditingPurposeId] = useState<string | 'new' | null>(null)
-  const [kbFolder, setKbFolder] = useState('')
+  const [verify, setVerify] = useState<AiVerifyResult | null>(null)
+  const [verifying, setVerifying] = useState(false)
 
   const [syncSettings, setSyncSettings] = useState<SyncSettings>({
     githubToken: null, githubTokenSet: false, repo: null, branch: 'main',
@@ -547,11 +586,6 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   useEffect(() => {
     window.api.ai.settings.get().then(setAiSettings)
   }, [])
-
-  useEffect(() => {
-    if (!workspaceId) { setKbFolder(''); return }
-    window.api.kb.status(workspaceId).then((s) => setKbFolder(s.folder))
-  }, [workspaceId])
 
   useEffect(() => {
     window.api.sync.getSettings().then(s => {
@@ -586,6 +620,16 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
   const setApiKey = async (apiKey: string) => {
     await window.api.ai.settings.set({ apiKey })
     setAiSettings((s) => ({ ...s, apiKey }))
+  }
+
+  const handleVerify = async () => {
+    setVerifying(true)
+    setVerify(null)
+    try {
+      setVerify(await window.api.ai.verify())
+    } finally {
+      setVerifying(false)
+    }
   }
 
   const setModel = async (model: string) => {
@@ -764,14 +808,14 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
         </Card>
       </Section>
 
-      {/* ── AI Summaries ───────────────────────────────────────────── */}
+      {/* ── AI ─────────────────────────────────────────────────────── */}
       <Section>
-        <SectionLabel>AI Summaries</SectionLabel>
+        <SectionLabel>AI</SectionLabel>
         <Card>
           <Row>
             <RowMeta>
-              <RowTitle>Enable AI Summaries</RowTitle>
-              <RowDesc>Generate smart summaries of notes using an AI model via OpenRouter</RowDesc>
+              <RowTitle>Enable AI</RowTitle>
+              <RowDesc>Powers summaries, the knowledge base, and Ask — all through OpenRouter</RowDesc>
             </RowMeta>
             <ToggleLabel>
               <ToggleInput
@@ -787,29 +831,88 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
             <>
               <RowDivider />
               <InputRow>
-                <InputLabel>OpenRouter API Key</InputLabel>
-                <Input
-                  type="password"
-                  value={aiSettings.apiKey}
-                  placeholder="sk-or-…"
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
+                <InputLabel>OpenRouter API key</InputLabel>
+                <FieldRow>
+                  <Input
+                    type="password"
+                    value={aiSettings.apiKey}
+                    placeholder="sk-or-…"
+                    onChange={(e) => { setApiKey(e.target.value); setVerify(null) }}
+                  />
+                  <Button
+                    $variant="ghost"
+                    $size="sm"
+                    disabled={verifying || !aiSettings.apiKey}
+                    onClick={handleVerify}
+                  >
+                    {verifying ? 'Verifying…' : 'Verify'}
+                  </Button>
+                </FieldRow>
+                {verify && (
+                  <SyncStatusText $variant={verify.ok ? 'success' : 'error'}>
+                    {verify.ok ? `✓ ${describeKey(verify)}` : `✗ ${verify.error}`}
+                  </SyncStatusText>
+                )}
               </InputRow>
               <RowDivider />
               <InputRow>
-                <InputLabel>Model</InputLabel>
+                <InputLabel>Writing model</InputLabel>
                 <Input
                   value={aiSettings.model}
                   placeholder="e.g. anthropic/claude-3.5-sonnet"
                   onChange={(e) => setModel(e.target.value)}
                 />
+                <FieldHint>Used for summaries, knowledge base articles, and answers.</FieldHint>
+              </InputRow>
+              <RowDivider />
+              <InputRow>
+                <InputLabel>Filing model</InputLabel>
+                <ShrinkField>
+                  <SegmentedControl>
+                    <Segment
+                      $active={!aiSettings.kbClassifierModel}
+                      onClick={() => setKbClassifierModel('')}
+                    >
+                      Same as writing model
+                    </Segment>
+                    <Segment
+                      $active={!!aiSettings.kbClassifierModel}
+                      onClick={() => !aiSettings.kbClassifierModel && setKbClassifierModel(aiSettings.model)}
+                    >
+                      Use another model
+                    </Segment>
+                  </SegmentedControl>
+                </ShrinkField>
+                {!!aiSettings.kbClassifierModel && (
+                  <Input
+                    value={aiSettings.kbClassifierModel}
+                    placeholder="e.g. anthropic/claude-3.5-haiku"
+                    onChange={(e) => setKbClassifierModel(e.target.value)}
+                  />
+                )}
+                <FieldHint>
+                  Sorts each saved note into topics — one call per note, so a cheap model is usually enough.
+                </FieldHint>
               </InputRow>
             </>
           )}
         </Card>
+      </Section>
 
-        {aiSettings.enabled && (
+      {/* ── Summaries ──────────────────────────────────────────────── */}
+      {aiSettings.enabled && (
+        <Section>
+          <SectionLabel>Summaries</SectionLabel>
           <Card>
+            <Row>
+              <RowMeta>
+                <RowTitle>Purpose presets</RowTitle>
+                <RowDesc>
+                  Each preset is a system prompt you can pick when you hit ✦ Summarize on a person's feed
+                </RowDesc>
+              </RowMeta>
+            </Row>
+            <RowDivider />
             <PurposeList>
               {aiSettings.purposes.map((p: AiPurposePreset) => (
                 editingPurposeId === p.id ? (
@@ -850,82 +953,49 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
               )}
             </PurposeList>
           </Card>
-        )}
-      </Section>
+        </Section>
+      )}
 
-      {/* ── Knowledge Base ─────────────────────────────────────────── */}
-      <Section>
-        <SectionLabel>Knowledge Base</SectionLabel>
-        <Card>
-          {!aiSettings.enabled ? (
+      {/* ── Knowledge base ─────────────────────────────────────────── */}
+      {aiSettings.enabled && (
+        <Section>
+          <SectionLabel>Knowledge base</SectionLabel>
+          <Card>
             <Row>
               <RowMeta>
-                <RowTitle>Requires AI Summaries</RowTitle>
-                <RowDesc>Turn on AI Summaries above to have notes filed into topic documents.</RowDesc>
+                <RowTitle>File notes automatically</RowTitle>
+                <RowDesc>
+                  Every note you save is sorted into one or two topics in the background — one call per note
+                </RowDesc>
               </RowMeta>
+              <ToggleLabel>
+                <ToggleInput
+                  type="checkbox"
+                  checked={aiSettings.kbAutoFile}
+                  onChange={(e) => setKbAutoFile(e.target.checked)}
+                />
+                <ToggleSlider />
+              </ToggleLabel>
             </Row>
-          ) : (
-            <>
-              <Row>
-                <RowMeta>
-                  <RowTitle>File notes automatically</RowTitle>
-                  <RowDesc>Each note you save is filed into one or two topics in the background</RowDesc>
-                </RowMeta>
-                <ToggleLabel>
-                  <ToggleInput
-                    type="checkbox"
-                    checked={aiSettings.kbAutoFile}
-                    onChange={(e) => setKbAutoFile(e.target.checked)}
-                  />
-                  <ToggleSlider />
-                </ToggleLabel>
-              </Row>
-              <RowDivider />
-              <InputRow>
-                <InputLabel>Rewrite a topic after N new notes</InputLabel>
+            <RowDivider />
+            <InputRow>
+              <InputLabel>Rewrite a topic after N new notes</InputLabel>
+              <NarrowField>
                 <Input
                   type="number"
                   min="0"
                   value={String(aiSettings.kbRegenThreshold)}
                   onChange={(e) => setKbRegenThreshold(e.target.value)}
                 />
-              </InputRow>
-              <Row>
-                <RowMeta>
-                  <RowDesc>
-                    0 turns automatic rewriting off. Documents are always rewritten in full from their
-                    notes, so edits made by hand are not kept.
-                  </RowDesc>
-                </RowMeta>
-              </Row>
-              <RowDivider />
-              <InputRow>
-                <InputLabel>Filing model (optional)</InputLabel>
-                <Input
-                  value={aiSettings.kbClassifierModel}
-                  placeholder={aiSettings.model || 'defaults to the model above'}
-                  onChange={(e) => setKbClassifierModel(e.target.value)}
-                />
-              </InputRow>
-              <RowDivider />
-              <Row>
-                <RowMeta>
-                  <RowTitle>Documents folder</RowTitle>
-                  <RowDesc>{kbFolder || 'Select a workspace to see its folder'}</RowDesc>
-                </RowMeta>
-                <Button
-                  $variant="ghost"
-                  $size="sm"
-                  disabled={!workspaceId}
-                  onClick={() => workspaceId && window.api.kb.openFolder(workspaceId)}
-                >
-                  Open
-                </Button>
-              </Row>
-            </>
-          )}
-        </Card>
-      </Section>
+              </NarrowField>
+              <FieldHint>
+                0 turns automatic rewriting off. An article is always rewritten in full from its notes, so
+                edits made by hand are not kept.
+              </FieldHint>
+            </InputRow>
+          </Card>
+        </Section>
+      )}
 
       {/* ── Data ───────────────────────────────────────────────────── */}
       <Section>

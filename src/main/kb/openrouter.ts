@@ -1,5 +1,6 @@
 import { net } from 'electron'
 import { getDb } from '../store/db'
+import type { AiVerifyResult } from '@shared/types'
 
 export interface KbAiConfig {
   enabled: boolean
@@ -31,6 +32,52 @@ export function readKbAiConfig(): KbAiConfig {
 /** True when a call can actually be made — callers stay silent otherwise. */
 export function isKbAiReady(config: KbAiConfig): boolean {
   return config.enabled && !!config.apiKey && !!config.model
+}
+
+/**
+ * Checks a key against OpenRouter's own key endpoint, which costs nothing and
+ * needs no model. Every failure comes back as a result rather than a throw so
+ * the settings row can render it verbatim.
+ */
+export async function verifyApiKey(apiKey: string): Promise<AiVerifyResult> {
+  if (!apiKey) return { ok: false, error: 'No API key saved yet.' }
+
+  try {
+    const response = await net.fetch('https://openrouter.ai/api/v1/key', {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://peernotes.app',
+        'X-Title': 'Peernotes',
+      },
+      signal: AbortSignal.timeout(15_000),
+    })
+
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, error: 'OpenRouter rejected this key.' }
+    }
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
+      return { ok: false, error: body?.error?.message ?? `OpenRouter error: ${response.status}` }
+    }
+
+    // Shape is { data: { label, usage, limit, … } }; treat every field as optional
+    // so a change on their side downgrades the message instead of breaking it.
+    const body = (await response.json().catch(() => ({}))) as {
+      data?: { label?: unknown; usage?: unknown; limit?: unknown }
+    }
+    const data = body?.data ?? {}
+    return {
+      ok: true,
+      label: typeof data.label === 'string' && data.label ? data.label : undefined,
+      usage: typeof data.usage === 'number' ? data.usage : undefined,
+      limit: typeof data.limit === 'number' ? data.limit : null,
+    }
+  } catch (e) {
+    if (e instanceof Error && e.name === 'TimeoutError') {
+      return { ok: false, error: 'OpenRouter did not respond in time.' }
+    }
+    return { ok: false, error: 'Could not reach OpenRouter.' }
+  }
 }
 
 interface ChatParams {

@@ -34,7 +34,7 @@ function assembleBody(topic: string, content: string): string {
  */
 export async function regenerateDoc(workspaceId: string, slug: string): Promise<boolean> {
   const config = readKbAiConfig()
-  if (!isKbAiReady(config)) throw new Error('AI is not configured — set a key and model in Settings → AI Summaries.')
+  if (!isKbAiReady(config)) throw new Error('AI is not configured — set a key and model in Settings → AI.')
 
   const doc = readDoc(workspaceId, slug)
   if (!doc) throw new Error('Topic not found')

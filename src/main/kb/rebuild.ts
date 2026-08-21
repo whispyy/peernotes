@@ -31,7 +31,7 @@ export async function rebuildKb(
 ): Promise<KbRebuildOutcome> {
   const config = readKbAiConfig()
   if (!isKbAiReady(config)) {
-    throw new Error('AI is not configured — set a key and model in Settings → AI Summaries.')
+    throw new Error('AI is not configured — set a key and model in Settings → AI.')
   }
 
   const notes = liveNoteIds(workspaceId).size

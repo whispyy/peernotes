@@ -6,6 +6,7 @@ import type { KbAskResult, KbDocContent, KbProgress } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { useKb } from '../../../hooks/useKb'
 import { useAiSettings } from '../../../hooks/useAiSettings'
+import { formatKbProgress, plural } from '../../../utils/kbText'
 
 const NOTE_LINK_PREFIX = 'peernotes://note/'
 
@@ -118,7 +119,9 @@ const ActionRow = styled.div`
 
 const AskInput = styled.input`
   flex: 1;
-  min-width: 160px;
+  /* Wide enough that the buttons wrap to their own row rather than
+     squeezing the question down to a sliver in a narrow window. */
+  min-width: 260px;
   background: ${({ theme }) => theme.colors.bg.secondary};
   border: 1px solid ${({ theme }) => theme.colors.border.default};
   border-radius: ${({ theme }) => theme.radius.md};
@@ -136,24 +139,6 @@ const AskInput = styled.input`
 
 const ActionSpacer = styled.div`
   flex: 1;
-`
-
-const ConfirmBar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing['3']};
-  padding: ${({ theme }) => theme.spacing['3']} ${({ theme }) => theme.spacing['4']};
-  background: ${({ theme }) => theme.colors.bg.elevated};
-  border: 1px solid ${({ theme }) => theme.colors.border.default};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  flex-shrink: 0;
-`
-
-const ConfirmText = styled.div`
-  flex: 1;
-  font-size: ${({ theme }) => theme.typography.size.sm};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  line-height: ${({ theme }) => theme.typography.lineHeight.base};
 `
 
 const ErrorText = styled.div`
@@ -360,14 +345,6 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-function formatProgress({ phase, done, total }: KbProgress): string {
-  return phase === 'filing' ? `Sorting note ${done} of ${total}…` : `Writing document ${done} of ${total}…`
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNote }: Props) {
@@ -377,8 +354,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [doc, setDoc] = useState<KbDocContent | null>(null)
   // 'rewriting' is one document on demand; 'regenerating' is the stale sweep
-  const [busy, setBusy] = useState<'filing' | 'rewriting' | 'regenerating' | 'asking' | 'rebuilding' | null>(null)
-  const [confirmRebuild, setConfirmRebuild] = useState(false)
+  const [busy, setBusy] = useState<'filing' | 'rewriting' | 'regenerating' | 'asking' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
@@ -389,7 +365,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   // Enabled is not the same as usable — every action throws without both of these
   const aiReady = aiSettings.enabled && !!aiSettings.apiKey && !!aiSettings.model
   // Only the runs that work through a list can be stopped partway
-  const stoppable = busy === 'filing' || busy === 'rebuilding' || busy === 'regenerating'
+  const stoppable = busy === 'filing' || busy === 'regenerating'
 
   useEffect(() => window.api.kb.onProgress(setProgress), [])
 
@@ -420,7 +396,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
 
   const run = useCallback(
     async (
-      kind: 'filing' | 'rewriting' | 'regenerating' | 'asking' | 'rebuilding',
+      kind: 'filing' | 'rewriting' | 'regenerating' | 'asking',
       action: () => Promise<string | null>
     ) => {
       setBusy(kind)
@@ -469,29 +445,6 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
         throw new Error(`Rewrote ${regenerated}, failed on ${failed.length}: ${failed[0].error}`)
       }
       return `Rewrote ${plural(regenerated, 'doc')}${cancelled ? ' · stopped early, the rest are still stale' : ''}.`
-    })
-  }
-
-  const handleRebuild = () => {
-    if (!workspaceId) return
-    setConfirmRebuild(false)
-    run('rebuilding', async () => {
-      const r = await window.api.kb.rebuild(workspaceId)
-      const parts = [`Rebuilt ${plural(r.topics, 'topic')} from ${r.filed} of ${plural(r.notes, 'note')}`]
-      if (r.failed > 0) parts.push(`${r.failed} could not be filed`)
-      // Either the user stopped it or the filing guard tripped after three
-      // consecutive failures — say so rather than leaving notes unexplained.
-      if (r.filed + r.failed < r.notes) {
-        parts.push(
-          r.cancelled
-            ? `stopped — ${r.notes - r.filed} still unfiled, use Sort to pick up where it left off`
-            : `stopped early — ${r.notes - r.filed} still unfiled, use Sort once the cause is fixed`
-        )
-      }
-      if (r.regenFailed.length > 0) {
-        parts.push(`${r.regenFailed.length} document${r.regenFailed.length === 1 ? '' : 's'} failed to write`)
-      }
-      return `${parts.join(' · ')}.`
     })
   }
 
@@ -611,25 +564,6 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
               {busy === 'regenerating' ? 'Rewriting…' : `Rewrite ${status.staleCount} stale`}
             </Button>
           )}
-          {status.noteCount > 0 && (
-            <Button
-              $variant="ghost"
-              $size="sm"
-              onClick={() => { setConfirmRebuild(true); setError(null); setNotice(null) }}
-              disabled={busy !== null}
-              title="Discards every topic and files all notes again from scratch — the only way topics can merge or split"
-            >
-              {busy === 'rebuilding' ? 'Rebuilding…' : 'Rebuild…'}
-            </Button>
-          )}
-          <Button
-            $variant="ghost"
-            $size="sm"
-            onClick={() => workspaceId && window.api.kb.openFolder(workspaceId)}
-            title={status.folder}
-          >
-            Folder
-          </Button>
           {stoppable && (
             <Button
               $variant="ghost"
@@ -642,23 +576,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
           )}
         </ActionRow>
 
-        {progress && busy !== null && <HintText>{formatProgress(progress)}</HintText>}
-
-        {confirmRebuild && (
-          <ConfirmBar>
-            <ConfirmText>
-              Re-file all {status.noteCount} note{status.noteCount === 1 ? '' : 's'} into fresh topics? Every
-              current document is discarded and written again — about {status.noteCount + status.topics.length}{' '}
-              AI calls, and topics may come back merged, split or renamed.
-            </ConfirmText>
-            <Button $variant="primary" $size="sm" onClick={handleRebuild}>
-              Rebuild
-            </Button>
-            <Button $variant="ghost" $size="sm" onClick={() => setConfirmRebuild(false)}>
-              Cancel
-            </Button>
-          </ConfirmBar>
-        )}
+        {progress && busy !== null && <HintText>{formatKbProgress(progress)}</HintText>}
 
         {error && <ErrorText>{error}</ErrorText>}
         {notice && !error && <HintText>{notice}</HintText>}

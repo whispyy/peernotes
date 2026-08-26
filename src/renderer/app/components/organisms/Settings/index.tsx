@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
 import type { ThemeMode } from '../../../hooks/useThemeMode'
-import type { AiPurposePreset, AiSettings, AiVerifyResult, SyncSettings, SyncDirection, ICloudSyncSettings } from '@shared/types'
+import type { AiPurposePreset, AiSettings, AiVerifyResult, SyncSettings, SyncDirection, ICloudSyncSettings, KbProgress } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { Input } from '../../atoms/Input'
 import { TextArea } from '../../atoms/TextArea'
+import { useKb } from '../../../hooks/useKb'
+import { describeRebuild, formatKbProgress } from '../../../utils/kbText'
 
 interface Props {
   mode: ThemeMode
@@ -418,6 +420,7 @@ const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
 ]
 
 type ResetState = 'idle' | 'confirm' | 'deleting' | 'error'
+type RebuildState = 'idle' | 'confirm' | 'running' | 'done' | 'error'
 type ShortcutState = 'idle' | 'recording' | 'preview'
 
 function acceleratorToKeys(acc: string): string[] {
@@ -508,6 +511,11 @@ function PurposeEditor({ initial, onSave, onCancel }: PurposeEditorProps) {
 
 export function Settings({ mode, setThemeMode, onExport, onImport, onReset, workspaceId, workspaceName }: Props) {
   const [resetState, setResetState] = useState<ResetState>('idle')
+  const [rebuildState, setRebuildState] = useState<RebuildState>('idle')
+  const [rebuildMsg, setRebuildMsg] = useState('')
+  const [rebuildProgress, setRebuildProgress] = useState<KbProgress | null>(null)
+  // Note and topic counts, so the confirmation can state what a rebuild costs
+  const { status: kbStatus, refresh: refreshKb } = useKb(workspaceId ?? null)
 
   // Shortcut state
   const [shortcut, setShortcut] = useState('')
@@ -609,6 +617,27 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
       setResetState('idle')
     } catch {
       setResetState('error')
+    }
+  }
+
+  // A rebuild is one AI call per note, so it reports how far along it is
+  useEffect(() => window.api.kb.onProgress(setRebuildProgress), [])
+
+  // Rebuild lives here rather than in the Knowledge tab: it is rare, expensive
+  // and destructive, so it belongs with maintenance rather than reading.
+  const handleRebuild = async () => {
+    if (!workspaceId) return
+    setRebuildState('running')
+    setRebuildProgress(null)
+    try {
+      setRebuildMsg(describeRebuild(await window.api.kb.rebuild(workspaceId)))
+      setRebuildState('done')
+    } catch (err) {
+      setRebuildMsg(err instanceof Error ? err.message : String(err))
+      setRebuildState('error')
+    } finally {
+      setRebuildProgress(null)
+      refreshKb()
     }
   }
 
@@ -993,6 +1022,78 @@ export function Settings({ mode, setThemeMode, onExport, onImport, onReset, work
                 edits made by hand are not kept.
               </FieldHint>
             </InputRow>
+            <RowDivider />
+            <Row>
+              <RowMeta>
+                <RowTitle>Documents folder</RowTitle>
+                <RowDesc>The markdown file behind each topic, plus the browsable index</RowDesc>
+              </RowMeta>
+              <Button
+                $size="sm"
+                $variant="ghost"
+                onClick={() => workspaceId && window.api.kb.openFolder(workspaceId)}
+                disabled={!workspaceId}
+              >
+                Reveal
+              </Button>
+            </Row>
+            <RowDivider />
+            {rebuildState === 'confirm' ? (
+              <ConfirmRow>
+                <RowMeta>
+                  <RowTitle>Re-file all {kbStatus.noteCount} notes into fresh topics?</RowTitle>
+                  <RowDesc>
+                    Every current document is discarded and written again — about{' '}
+                    {kbStatus.noteCount + kbStatus.topics.length} AI calls, and topics may come back merged,
+                    split or renamed.
+                  </RowDesc>
+                </RowMeta>
+                <ConfirmActions>
+                  <Button $variant="ghost" $size="sm" onClick={() => setRebuildState('idle')}>
+                    Cancel
+                  </Button>
+                  <Button $variant="danger" $size="sm" onClick={handleRebuild}>
+                    Yes, rebuild
+                  </Button>
+                </ConfirmActions>
+              </ConfirmRow>
+            ) : rebuildState === 'running' ? (
+              <Row>
+                <RowMeta>
+                  <RowTitle>Rebuilding…</RowTitle>
+                  <RowDesc>
+                    {rebuildProgress ? formatKbProgress(rebuildProgress) : 'Discarding the current topics…'}
+                  </RowDesc>
+                </RowMeta>
+                <Button $variant="ghost" $size="sm" onClick={() => window.api.kb.cancel()}>
+                  Stop
+                </Button>
+              </Row>
+            ) : (
+              <Row>
+                <RowMeta>
+                  <RowTitle>Rebuild from scratch</RowTitle>
+                  {rebuildState === 'error' ? (
+                    <ErrorDesc>{rebuildMsg}</ErrorDesc>
+                  ) : (
+                    <RowDesc>
+                      {rebuildState === 'done'
+                        ? rebuildMsg
+                        : 'Files every note again from an empty topic list — the only way topics can merge, split or disappear'}
+                    </RowDesc>
+                  )}
+                </RowMeta>
+                <Button
+                  $size="sm"
+                  $variant="ghost"
+                  onClick={() => setRebuildState('confirm')}
+                  disabled={!workspaceId || kbStatus.noteCount === 0}
+                  title={kbStatus.noteCount === 0 ? 'There are no notes to rebuild from' : undefined}
+                >
+                  Rebuild…
+                </Button>
+              </Row>
+            )}
           </Card>
         </Section>
       )}

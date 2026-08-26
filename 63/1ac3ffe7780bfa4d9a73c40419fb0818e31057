@@ -1,0 +1,97 @@
+src/main/kb/rebuild.ts
+  s_df2fd448d77983::t_ad8faa03588fad 1,7,9-13,24-27,31-32,41-42,49,51-54,59-65,72-73,76
+src/main/kb/ask.ts
+  s_df2fd448d77983::t_fffd0b5f7562c1 4
+src/main/kb/notes.ts
+  s_df2fd448d77983::t_18b498bc96b567 55-62
+src/main/ipc/workspaces.ts
+  s_df2fd448d77983::t_63e51935b4c6c9 58-60
+  s_df2fd448d77983::t_11ac0c4e256d51 5
+src/main/kb/doc.ts
+  s_df2fd448d77983::t_edc19cf6673729 180-200
+src/preload/index.ts
+  s_df2fd448d77983::t_a9be423b7a1174 2
+  s_df2fd448d77983::t_23bb7793d5ecbf 126,133-136
+  s_df2fd448d77983::t_0fd1dc3ab7b887 137
+src/main/kb/paths.ts
+  s_df2fd448d77983::t_612ff07c217466 30-34,43-49
+  s_df2fd448d77983::t_7cd99ccbb94fd3 50
+src/main/ipc/notes.ts
+  s_df2fd448d77983::t_40508168457728 200-208
+  s_df2fd448d77983::t_01cc539d86de30 8
+src/main/ipc/sync.ts
+  s_df2fd448d77983::t_96e6ae56b04c9a 265-292,295-297,303-304,306-310,321-331,333,338,342-349,355-357,360-367,376-383,385-399
+  s_df2fd448d77983::t_9b6e7c40afe759 11-12
+  s_df2fd448d77983::t_0faf510adcd80f 190-219
+  s_df2fd448d77983::t_5c0b9ba10e8b96 334-337
+src/main/kb/cancel.ts
+  s_df2fd448d77983::t_85a32fc781e6b0 1-21
+src/renderer/app/globals.d.ts
+  s_df2fd448d77983::t_bad05f46236d08 82,85
+  s_df2fd448d77983::t_adfac46817c447 1
+src/renderer/app/components/organisms/KnowledgeBase/index.tsx
+  s_df2fd448d77983::t_8b083e61444173 363-370
+  s_df2fd448d77983::t_d9d6b63bf0983e 429,437
+  s_df2fd448d77983::t_95bdff1589a993 633-642,645
+  s_df2fd448d77983::t_0ecb89d1f6353b 467,471
+  s_df2fd448d77983::t_2c6f9052da9c0b 5
+  s_df2fd448d77983::t_8e626497d17a5f 386,389-394
+  s_df2fd448d77983::t_bdbdeb9a4f3aac 526-529,540-544
+  s_df2fd448d77983::t_7d668a33f9bf79 458
+  s_df2fd448d77983::t_47f3b6419a6ec3 480,482-483,485-489
+  s_df2fd448d77983::t_43dfb2f5398618 23-24
+  s_df2fd448d77983::t_87c1f17bc25a7b 704
+  s_df2fd448d77983::t_e2021a669ccb5a 447-452
+  s_df2fd448d77983::t_5c25ce4a2ceb18 506-511,516
+  s_df2fd448d77983::t_a4e0e25c4d49ea 586
+  s_df2fd448d77983::t_802c83dcf68a2d 422-425
+  s_df2fd448d77983::t_572e56aad97f3d 379-380
+  s_df2fd448d77983::t_0ea8a0632ada4a 646
+src/shared/types.ts
+  s_df2fd448d77983::t_bce3f4e3aa36d0 205-206,216,222-229
+src/main/kb/generate.ts
+  s_df2fd448d77983::t_525a3f80f1f7d8 83-85,88-89,91-95,102,105
+  s_df2fd448d77983::t_7919a71e635b18 1
+  s_df2fd448d77983::t_deae2f46caccac 119
+src/main/kb/classify.ts
+  s_df2fd448d77983::t_bc69decd64c7cf 1
+  s_df2fd448d77983::t_6b13ccd4d9e3ab 84-85,90-91,93,104,107-110,125,129
+src/main/windows.ts
+  s_df2fd448d77983::t_a4d9604c80e479 38-39
+  s_df2fd448d77983::t_baa8292c2c3e93 1,4,9-19
+  s_df2fd448d77983::t_44c12d736ea24b 130-133
+  s_df2fd448d77983::t_b331496e78dff2 94-95
+  s_2d3bad037de954::t_8033ea9e1485b2 20
+src/main/ipc/people.ts
+  s_df2fd448d77983::t_e8f0c36382efd5 5
+  s_df2fd448d77983::t_776d2b188f7724 57,66,68-70
+src/main/ipc/kb.ts
+  s_df2fd448d77983::t_012d0d89c1f54a 210-218,220-224,238-243,245-248,254-260
+  s_df2fd448d77983::t_e5b0f49f390214 2,5,10,20,33-35,38-46,61,80,94-119,126,149,204-209,219,225-231,233-234,236-237,244,249-250,252-253,261-262,264-266
+src/renderer/app/App.tsx
+  s_df2fd448d77983::t_7eb264b60e1977 225-227,229-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "631ac3ffe7780bfa4d9a73c40419fb0818e31057",
+  "prompts": {},
+  "sessions": {
+    "s_2d3bad037de954": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5df10708-9812-4475-8d06-72b962e876ab",
+        "model": "claude-fable-5"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    },
+    "s_df2fd448d77983": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e1bff1c1-de4e-450d-b561-8c7e3812f160",
+        "model": "claude-opus-5"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}

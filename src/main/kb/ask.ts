@@ -1,6 +1,7 @@
 import { listDocs, readIndex } from './doc'
 import type { KbDoc } from './doc'
 import { chat, isKbAiReady, readKbAiConfig } from './openrouter'
+import type { KbAskResult } from '@shared/types'
 
 const MAX_DOCS = 5
 const MAX_DOC_CHARS = 6_000
@@ -58,11 +59,6 @@ export function selectDocs(docs: KbDoc[], question: string): KbDoc[] {
   return [...docs]
     .sort((a, b) => (b.generatedAt ?? '').localeCompare(a.generatedAt ?? ''))
     .slice(0, MAX_DOCS)
-}
-
-export interface KbAskResult {
-  answer: string
-  sources: Array<{ slug: string; topic: string }>
 }
 
 export async function askKb(workspaceId: string, question: string): Promise<KbAskResult> {

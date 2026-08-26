@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -123,11 +123,17 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('kb:rebuild', workspaceId),
     ask: (workspaceId: string, question: string): Promise<KbAskResult> =>
       ipcRenderer.invoke('kb:ask', workspaceId, question),
+    cancel: (): Promise<void> => ipcRenderer.invoke('kb:cancel'),
     openFolder: (workspaceId: string): Promise<void> =>
       ipcRenderer.invoke('kb:open-folder', workspaceId),
     onUpdated: (cb: () => void): (() => void) => {
       ipcRenderer.on('kb:updated', cb)
       return () => ipcRenderer.removeListener('kb:updated', cb)
+    },
+    onProgress: (cb: (progress: KbProgress) => void): (() => void) => {
+      const handler = (_e: unknown, progress: KbProgress): void => cb(progress)
+      ipcRenderer.on('kb:progress', handler)
+      return () => ipcRenderer.removeListener('kb:progress', handler)
     },
   },
   ai: {

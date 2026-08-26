@@ -1,11 +1,13 @@
 import { ipcMain, shell } from 'electron'
-import { notifyKbUpdated } from '../windows'
+import { notifyKbProgress, notifyKbUpdated } from '../windows'
 import { getActiveWorkspaceId } from './workspaces'
 import { askKb } from '../kb/ask'
+import { requestCancel, resetCancel } from '../kb/cancel'
 import { fileNoteWithAi, fileUnfiledNotes, unfiledNoteIds } from '../kb/classify'
 import {
   isStale,
   listDocs,
+  markNotesPending,
   pendingNoteIds,
   pruneDanglingIds,
   readDoc,
@@ -15,7 +17,7 @@ import {
 } from '../kb/doc'
 import { autoRegenerate, regenerateDoc, regenerateStaleDocs } from '../kb/generate'
 import { rebuildKb } from '../kb/rebuild'
-import { getLiveNote, liveNoteIds } from '../kb/notes'
+import { getLiveNote, liveNoteIds, noteIdsForPerson } from '../kb/notes'
 import { isKbAiReady, readKbAiConfig } from '../kb/openrouter'
 import { ensureKbDir } from '../kb/paths'
 import type {
@@ -28,11 +30,20 @@ import type {
 } from '@shared/types'
 
 // Filing runs off note saves, so it is serialized to keep a burst of notes from
-// firing a burst of concurrent OpenRouter calls.
+// firing a burst of concurrent OpenRouter calls. The explicit Sort / Rebuild /
+// Rewrite runs join the same queue, so a note saved mid-rebuild is filed after
+// it finishes rather than into a topic set that is being torn down.
 let filingChain: Promise<unknown> = Promise.resolve()
 
-function enqueue(task: () => Promise<void>): void {
-  filingChain = filingChain.then(task, task).catch(() => undefined)
+function enqueue<T>(task: () => Promise<T>): Promise<T> {
+  const run = filingChain.then(task, task)
+  filingChain = run.catch(() => undefined)
+  return run
+}
+
+/** Queue work nothing is waiting on — a rejection here must not go unhandled. */
+function enqueueDetached(task: () => Promise<void>): void {
+  void enqueue(task).catch(() => undefined)
 }
 
 /**
@@ -47,7 +58,7 @@ export function scheduleNoteFiling(noteId: string): void {
   if (!note) return
   const { workspaceId } = note
 
-  enqueue(async () => {
+  enqueueDetached(async () => {
     try {
       const slugs = await fileNoteWithAi(noteId)
       if (slugs.length === 0) return
@@ -66,7 +77,7 @@ export function scheduleNoteRefiling(noteId: string): void {
   if (!note) return
   const { workspaceId } = note
 
-  enqueue(async () => {
+  enqueueDetached(async () => {
     try {
       await withKbLock(() => {
         unfileNote(workspaceId, noteId)
@@ -81,12 +92,38 @@ export function scheduleNoteRefiling(noteId: string): void {
 }
 
 /**
+ * For changes that leave the topic right but the prose wrong — a note moved to
+ * another person, its sentiment flipped, or a person renamed. Re-classifying
+ * would be a wasted call, so the citing docs are only marked for a rewrite.
+ */
+export function scheduleCitationRefresh(workspaceId: string, noteIds: string[]): void {
+  if (noteIds.length === 0) return
+
+  enqueueDetached(async () => {
+    const touched = await withKbLock(() => {
+      const slugs = markNotesPending(workspaceId, noteIds)
+      if (slugs.length > 0) writeIndex(workspaceId)
+      return slugs
+    })
+    if (touched.length === 0) return
+    notifyKbUpdated()
+    const regenerated = await autoRegenerate(workspaceId, touched)
+    if (regenerated.length > 0) notifyKbUpdated()
+  })
+}
+
+/** A rename puts the wrong name in every doc that cites one of their notes. */
+export function schedulePersonCitationRefresh(workspaceId: string, personId: string): void {
+  scheduleCitationRefresh(workspaceId, noteIdsForPerson(personId))
+}
+
+/**
  * Called on delete, where the note row is already gone — the workspace has to be
  * passed in. Dropping the id leaves the doc stale so a regeneration removes the
  * now-dead citation from the body.
  */
 export function scheduleNoteUnfiling(workspaceId: string, noteId: string): void {
-  enqueue(async () => {
+  enqueueDetached(async () => {
     const touched = await withKbLock(() => {
       const slugs = unfileNote(workspaceId, noteId)
       if (slugs.length > 0) writeIndex(workspaceId)
@@ -109,7 +146,7 @@ export function backfillKb(): void {
   const config = readKbAiConfig()
   if (!config.autoFile || !isKbAiReady(config)) return
 
-  enqueue(async () => {
+  enqueueDetached(async () => {
     try {
       const { slugs } = await fileUnfiledNotes(workspaceId, STARTUP_BACKFILL_LIMIT)
       if (slugs.length === 0) return
@@ -164,36 +201,69 @@ export function registerKbHandlers(): void {
     }
   })
 
-  ipcMain.handle('kb:file-unfiled', async (_e, workspaceId: string): Promise<KbFileResult> => {
-    const config = readKbAiConfig()
-    if (!isKbAiReady(config)) {
-      throw new Error('AI is not configured — set a key and model in Settings → AI.')
-    }
-    const { filed, failed, slugs } = await fileUnfiledNotes(workspaceId)
-    if (slugs.length > 0) {
+  ipcMain.handle('kb:file-unfiled', (_e, workspaceId: string): Promise<KbFileResult> =>
+    enqueue(async () => {
+      const config = readKbAiConfig()
+      if (!isKbAiReady(config)) {
+        throw new Error('AI is not configured — set a key and model in Settings → AI.')
+      }
+      try {
+        resetCancel()
+        const { filed, failed, slugs, cancelled } = await fileUnfiledNotes(workspaceId, undefined, (done, total) => {
+          notifyKbProgress({ phase: 'filing', done, total })
+        })
+        if (slugs.length > 0) {
+          notifyKbUpdated()
+          await autoRegenerate(workspaceId, slugs)
+        }
+        notifyKbUpdated()
+        return { filed, failed, cancelled }
+      } finally {
+        // A stop applies to the run it was aimed at. Left set, it would quietly
+        // suppress the background regeneration that follows later note saves.
+        resetCancel()
+      }
+    })
+  )
+
+  ipcMain.handle('kb:regenerate', (_e, workspaceId: string, slug: string): Promise<void> =>
+    enqueue(async () => {
+      await regenerateDoc(workspaceId, slug)
       notifyKbUpdated()
-      await autoRegenerate(workspaceId, slugs)
-    }
-    notifyKbUpdated()
-    return { filed, failed }
-  })
+    })
+  )
 
-  ipcMain.handle('kb:regenerate', async (_e, workspaceId: string, slug: string): Promise<void> => {
-    await regenerateDoc(workspaceId, slug)
-    notifyKbUpdated()
-  })
+  ipcMain.handle('kb:regenerate-stale', (_e, workspaceId: string): Promise<KbRegenerateResult> =>
+    enqueue(async () => {
+      try {
+        resetCancel()
+        const { regenerated, failed, cancelled } = await regenerateStaleDocs(workspaceId, (done, total) => {
+          notifyKbProgress({ phase: 'writing', done, total })
+          notifyKbUpdated()
+        })
+        notifyKbUpdated()
+        return { regenerated: regenerated.length, failed, cancelled }
+      } finally {
+        resetCancel()
+      }
+    })
+  )
 
-  ipcMain.handle('kb:regenerate-stale', async (_e, workspaceId: string): Promise<KbRegenerateResult> => {
-    const { regenerated, failed } = await regenerateStaleDocs(workspaceId)
-    notifyKbUpdated()
-    return { regenerated: regenerated.length, failed }
-  })
+  ipcMain.handle('kb:rebuild', (_e, workspaceId: string): Promise<KbRebuildResult> =>
+    enqueue(async () => {
+      try {
+        const result = await rebuildKb(workspaceId, { onUpdated: notifyKbUpdated, onProgress: notifyKbProgress })
+        notifyKbUpdated()
+        return result
+      } finally {
+        resetCancel()
+      }
+    })
+  )
 
-  ipcMain.handle('kb:rebuild', async (_e, workspaceId: string): Promise<KbRebuildResult> => {
-    const result = await rebuildKb(workspaceId, notifyKbUpdated)
-    notifyKbUpdated()
-    return result
-  })
+  // Deliberately outside the filing queue: a stop must land while the run it is
+  // stopping still holds the queue.
+  ipcMain.handle('kb:cancel', (): void => requestCancel())
 
   ipcMain.handle('kb:ask', (_e, workspaceId: string, question: string): Promise<KbAskResult> =>
     askKb(workspaceId, question)

@@ -177,6 +177,27 @@ export function fileNote(workspaceId: string, topic: string, noteId: string): Kb
   return doc
 }
 
+/**
+ * Marks every doc citing these notes as needing a rewrite, without disturbing
+ * topic membership. Used when a note's person or sentiment changed, or a person
+ * was renamed: the topic is still right, but the body attributes the note to the
+ * wrong name or mood. Dropping the ids from generated_note_ids is what makes the
+ * doc stale and puts them back in the pending count.
+ */
+export function markNotesPending(workspaceId: string, noteIds: string[]): string[] {
+  const targets = new Set(noteIds)
+  if (targets.size === 0) return []
+
+  const touched: string[] = []
+  for (const doc of listDocs(workspaceId)) {
+    const kept = doc.generatedNoteIds.filter((id) => !targets.has(id))
+    if (kept.length === doc.generatedNoteIds.length) continue
+    writeDoc(workspaceId, { ...doc, generatedNoteIds: kept })
+    touched.push(doc.slug)
+  }
+  return touched
+}
+
 /** Used when a note is edited or deleted so it gets re-filed from scratch. */
 export function unfileNote(workspaceId: string, noteId: string): string[] {
   const touched: string[] = []

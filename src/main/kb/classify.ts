@@ -1,3 +1,4 @@
+import { isCancelled } from './cancel'
 import { fileNote, listDocs, withKbLock, writeIndex } from './doc'
 import { getLiveNote, listLiveNotes } from './notes'
 import { chat, isKbAiReady, parseJsonObject, readKbAiConfig } from './openrouter'
@@ -80,15 +81,16 @@ export function unfiledNoteIds(workspaceId: string): string[] {
 /**
  * Retry path for notes added while offline, before AI was configured, or after
  * a failed classification. Stops after three consecutive failures rather than
- * hammering a rate-limited or misconfigured endpoint.
+ * hammering a rate-limited or misconfigured endpoint, and between any two notes
+ * if the user asked to stop.
  */
 export async function fileUnfiledNotes(
   workspaceId: string,
   limit?: number,
-  onProgress?: () => void
-): Promise<{ filed: number; failed: number; slugs: string[] }> {
+  onProgress?: (done: number, total: number) => void
+): Promise<{ filed: number; failed: number; slugs: string[]; cancelled: boolean }> {
   const config = readKbAiConfig()
-  if (!isKbAiReady(config)) return { filed: 0, failed: 0, slugs: [] }
+  if (!isKbAiReady(config)) return { filed: 0, failed: 0, slugs: [], cancelled: false }
 
   const all = unfiledNoteIds(workspaceId)
   const pending = limit === undefined ? all : all.slice(0, limit)
@@ -99,8 +101,13 @@ export async function fileUnfiledNotes(
   let filed = 0
   let failed = 0
   let consecutiveFailures = 0
+  let cancelled = false
 
   for (const noteId of pending) {
+    if (isCancelled()) {
+      cancelled = true
+      break
+    }
     try {
       const touched = await fileNoteWithAi(noteId)
       if (touched.length > 0) {
@@ -115,10 +122,9 @@ export async function fileUnfiledNotes(
       failed += 1
       consecutiveFailures += 1
     }
-    // Nudge the view every few notes so a long rebuild fills in as it goes
-    if (onProgress && (filed + failed) % 5 === 0) onProgress()
+    onProgress?.(filed + failed, pending.length)
     if (consecutiveFailures >= 3) break
   }
 
-  return { filed, failed, slugs: [...slugs] }
+  return { filed, failed, slugs: [...slugs], cancelled }
 }

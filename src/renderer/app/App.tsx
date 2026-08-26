@@ -222,10 +222,13 @@ export function App({ mode, setThemeMode }: Props) {
     setExpandedList(list)
   }
 
-  // Knowledge base citations can point at notes outside the loaded page
-  const handleOpenNoteById = async (noteId: string) => {
+  // Knowledge base citations can point at notes outside the loaded page, and at
+  // notes that have since been deleted — the caller says so rather than no-op.
+  const handleOpenNoteById = async (noteId: string): Promise<boolean> => {
     const note = notes.find((n) => n.id === noteId) ?? (await window.api.notes.get(noteId))
-    if (note) handleExpand(note, [note])
+    if (!note) return false
+    handleExpand(note, [note])
+    return true
   }
 
   return (

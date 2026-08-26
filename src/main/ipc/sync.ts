@@ -8,7 +8,8 @@ import { getActiveWorkspaceId } from './workspaces'
 import { notifyKbUpdated, notifyMainWindow, notifyPeopleUpdated, notifySyncUpdated } from '../windows'
 import { buildExport } from './export'
 import { performImport } from './import'
-import { ensureKbDir, kbDir } from '../kb/paths'
+import { withKbLock, writeIndex } from '../kb/doc'
+import { ensureKbDir, kbDir, syncStatePath, writeFileAtomic } from '../kb/paths'
 import type { SyncSettings, SyncDirection, ImportPayload } from '@shared/types'
 
 let autoSyncTimer: ReturnType<typeof setInterval> | null = null
@@ -186,6 +187,36 @@ async function ghPut(
   if (status < 200 || status >= 300) throw new Error(parseGhError(data, status))
 }
 
+async function ghDelete(
+  token: string,
+  repo: string,
+  branch: string,
+  filePath: string,
+  sha: string,
+): Promise<void> {
+  validateRepo(repo)
+  const body = JSON.stringify({ message: `peernotes: remove ${filePath}`, sha, branch })
+  const { status, data } = await httpsRequest(
+    {
+      hostname: 'api.github.com',
+      path: `/repos/${encodePath(repo)}/contents/${encodePath(filePath)}`,
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'peernotes-app',
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    },
+    body,
+  )
+  // 404: someone deleted it first. 409/422: the sha moved on, so the file is
+  // not the one we meant to remove — either way the next sync sorts it out.
+  if (status === 404 || status === 409 || status === 422) return
+  if (status < 200 || status >= 300) throw new Error(parseGhError(data, status))
+}
+
 async function ghList(
   token: string,
   repo: string,
@@ -231,19 +262,52 @@ function localKbFiles(workspaceId: string): string[] {
   }
 }
 
+/**
+ * The doc names as of the last successful mirror — the base of a three-way
+ * compare, and the only way to tell "new here" apart from "deleted there".
+ *
+ * Without it, deletions never stick: a Rebuild discards the whole topic set,
+ * but the next pull sees files it doesn't have locally and downloads every
+ * discarded topic straight back. With it, a name that was in the base and has
+ * since vanished from one side is a real deletion and is applied to the other.
+ */
+function readSyncedDocNames(workspaceId: string): Set<string> {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(syncStatePath(workspaceId), 'utf-8')) as { docs?: unknown }
+    const docs = Array.isArray(parsed.docs) ? parsed.docs : []
+    return new Set(docs.filter((d): d is string => typeof d === 'string'))
+  } catch {
+    return new Set()
+  }
+}
+
+function writeSyncedDocNames(workspaceId: string, names: Iterable<string>): void {
+  try {
+    writeFileAtomic(syncStatePath(workspaceId), JSON.stringify({ docs: [...names].sort() }, null, 2))
+  } catch {
+    // Best effort. A missing base is safe — it just means deletions wait for
+    // the sync after next rather than being guessed at.
+  }
+}
+
 async function pushKbDocs(workspaceId: string, s: SyncSettings): Promise<number> {
   if (!s.githubToken || !s.repo) return 0
-  const files = localKbFiles(workspaceId)
-  if (files.length === 0) return 0
+  const local = new Set(localKbFiles(workspaceId))
+  const base = readSyncedDocNames(workspaceId)
+  if (local.size === 0 && base.size === 0) return 0
 
   const remoteDir = kbRemoteDir(s.filePath, getWorkspaceName(workspaceId))
   const remote = await ghList(s.githubToken, s.repo, s.branch, remoteDir)
   const remoteByName = new Map(remote.filter((e) => e.type === 'file').map((e) => [e.name, e.sha]))
 
-  let pushed = 0
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(kbDir(workspaceId), file), 'utf-8')
+  let changed = 0
+  for (const file of local) {
     const remoteSha = remoteByName.get(file)
+    // Absent remotely but present in the base means another device deleted it.
+    // Re-uploading here is what would resurrect it, so leave it for the pull.
+    if (!remoteSha && base.has(file)) continue
+
+    const content = fs.readFileSync(path.join(kbDir(workspaceId), file), 'utf-8')
     if (remoteSha === gitBlobSha(content)) continue
 
     const remotePath = `${remoteDir}/${file}`
@@ -254,26 +318,53 @@ async function pushKbDocs(workspaceId: string, s: SyncSettings): Promise<number>
       const fresh = await ghGet(s.githubToken, s.repo, s.branch, remotePath)
       await ghPut(s.githubToken, s.repo, s.branch, remotePath, content, fresh?.sha ?? null)
     }
-    pushed += 1
+    changed += 1
   }
-  return pushed
+
+  // Topics this device discarded. Only ones the base knew about: anything else
+  // is a doc another device added that we have simply never pulled.
+  const deleted = new Set<string>()
+  for (const [name, sha] of remoteByName) {
+    if (local.has(name) || !base.has(name)) continue
+    await ghDelete(s.githubToken, s.repo, s.branch, `${remoteDir}/${name}`, sha)
+    deleted.add(name)
+    changed += 1
+  }
+
+  // What remote holds now. Only .md names are ever recorded, so a file someone
+  // added to the folder by hand is never mistaken for a doc we deleted.
+  const survivingRemote = [...remoteByName.keys()].filter((n) => n.endsWith('.md') && !deleted.has(n))
+  writeSyncedDocNames(workspaceId, [...local, ...survivingRemote])
+  return changed
 }
 
 /**
- * Remote wins. Docs are regenerable derivatives of the notes, which sync
- * through the JSON, so a device that pulls newer notes re-files and regenerates
- * anyway — that self-heals instead of needing merge logic.
+ * Remote wins on content. Docs are regenerable derivatives of the notes, which
+ * sync through the JSON, so a device that pulls newer notes re-files and
+ * regenerates anyway — that self-heals instead of needing merge logic.
+ *
+ * Deletions are applied only to docs the base recorded, so a doc this device
+ * filed locally and has never pushed is never mistaken for one deleted
+ * elsewhere — otherwise a pull-only device would delete its own new topics and
+ * pay to re-file them on a loop.
  */
 async function pullKbDocs(workspaceId: string, s: SyncSettings): Promise<number> {
   if (!s.githubToken || !s.repo) return 0
   const remoteDir = kbRemoteDir(s.filePath, getWorkspaceName(workspaceId))
   const remote = await ghList(s.githubToken, s.repo, s.branch, remoteDir)
-  const docs = remote.filter((e) => e.type === 'file' && e.name.endsWith('.md'))
-  if (docs.length === 0) return 0
+  const files = remote.filter((e) => e.type === 'file' && e.name.endsWith('.md'))
+  const remoteNames = new Set(files.map((e) => e.name))
+  if (remoteNames.size === 0) return 0
 
   const dir = ensureKbDir(workspaceId)
-  let written = 0
-  for (const entry of docs) {
+  const base = readSyncedDocNames(workspaceId)
+
+  // Download first, apply under the lock once — holding it across the network
+  // would stall filing for as long as the transfer takes.
+  const fetched: Array<{ name: string; content: string }> = []
+  for (const entry of files) {
+    // The index is derived from the docs; it is rewritten locally below.
+    if (entry.name === '_index.md') continue
     const localPath = path.join(dir, entry.name)
     try {
       if (fs.existsSync(localPath) && gitBlobSha(fs.readFileSync(localPath, 'utf-8')) === entry.sha) continue
@@ -282,10 +373,30 @@ async function pullKbDocs(workspaceId: string, s: SyncSettings): Promise<number>
     }
     const file = await ghGet(s.githubToken, s.repo, s.branch, `${remoteDir}/${entry.name}`)
     if (!file?.content) continue
-    fs.writeFileSync(localPath, Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf-8'), 'utf-8')
-    written += 1
+    fetched.push({ name: entry.name, content: Buffer.from(file.content.replace(/\n/g, ''), 'base64').toString('utf-8') })
   }
-  return written
+
+  const removed = [...base].filter((name) => !remoteNames.has(name) && name !== '_index.md')
+
+  if (fetched.length === 0 && removed.length === 0) {
+    writeSyncedDocNames(workspaceId, remoteNames)
+    return 0
+  }
+
+  await withKbLock(() => {
+    for (const { name, content } of fetched) writeFileAtomic(path.join(dir, name), content)
+    for (const name of removed) {
+      try {
+        fs.unlinkSync(path.join(dir, name))
+      } catch {
+        // already gone
+      }
+    }
+    writeIndex(workspaceId)
+  })
+
+  writeSyncedDocNames(workspaceId, remoteNames)
+  return fetched.length + removed.length
 }
 
 // ── Core push / pull ──────────────────────────────────────────────────────────

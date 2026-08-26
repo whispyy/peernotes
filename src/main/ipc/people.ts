@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { v4 as uuid } from 'uuid'
 import { getDb } from '../store/db'
 import { notifyPeopleUpdated, notifyMainWindow } from '../windows'
+import { schedulePersonCitationRefresh } from './kb'
 import type { Person } from '@shared/types'
 
 export const SELECT_PERSON = `SELECT id, workspace_id AS workspaceId, name, created_at AS createdAt, archived_at AS archivedAt FROM people`
@@ -53,6 +54,7 @@ export function registerPeopleHandlers(): void {
     if (trimmed.length > 200) throw new Error('Name too long')
 
     const db = getDb()
+    let workspaceId: string | null = null
     db.transaction(() => {
       const person = db.prepare('SELECT workspace_id FROM people WHERE id = ?').get(id) as { workspace_id: string } | undefined
       if (!person) throw new Error('Person not found')
@@ -61,7 +63,11 @@ export function registerPeopleHandlers(): void {
         .get(trimmed, person.workspace_id, id)
       if (conflict) throw new Error('Name already taken')
       db.prepare('UPDATE people SET name = ? WHERE id = ?').run(trimmed, id)
+      workspaceId = person.workspace_id
     })()
+    // Knowledge base docs cite people by name, so every doc quoting them is now
+    // out of date — mark them for a rewrite rather than leaving the old name.
+    if (workspaceId) schedulePersonCitationRefresh(workspaceId, id)
     notifyPeopleUpdated()
   })
 

@@ -1,3 +1,4 @@
+import { isCancelled } from './cancel'
 import { isStale, listDocs, pendingNoteIds, readDoc, withKbLock, writeDoc, writeIndex } from './doc'
 import { formatNoteForPrompt, getLiveNotesByIds } from './notes'
 import { chat, isKbAiReady, readKbAiConfig } from './openrouter'
@@ -79,21 +80,29 @@ export async function regenerateDoc(workspaceId: string, slug: string): Promise<
 }
 
 export async function regenerateStaleDocs(
-  workspaceId: string
-): Promise<{ regenerated: string[]; failed: Array<{ slug: string; error: string }> }> {
+  workspaceId: string,
+  onProgress?: (done: number, total: number) => void
+): Promise<{ regenerated: string[]; failed: Array<{ slug: string; error: string }>; cancelled: boolean }> {
   const regenerated: string[] = []
   const failed: Array<{ slug: string; error: string }> = []
+  const stale = listDocs(workspaceId).filter(isStale)
+  let cancelled = false
 
-  for (const doc of listDocs(workspaceId).filter(isStale)) {
+  for (const doc of stale) {
+    if (isCancelled()) {
+      cancelled = true
+      break
+    }
     try {
       await regenerateDoc(workspaceId, doc.slug)
       regenerated.push(doc.slug)
     } catch (err) {
       failed.push({ slug: doc.slug, error: err instanceof Error ? err.message : String(err) })
     }
+    onProgress?.(regenerated.length + failed.length, stale.length)
   }
 
-  return { regenerated, failed }
+  return { regenerated, failed, cancelled }
 }
 
 /**
@@ -107,6 +116,7 @@ export async function autoRegenerate(workspaceId: string, slugs: string[]): Prom
 
   const done: string[] = []
   for (const slug of slugs) {
+    if (isCancelled()) break
     const doc = readDoc(workspaceId, slug)
     if (!doc) continue
     // A brand-new topic is generated on its first note, otherwise it would sit

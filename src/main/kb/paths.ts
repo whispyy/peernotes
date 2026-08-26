@@ -27,12 +27,25 @@ export function slugify(value: string): string {
   return slug || 'topic'
 }
 
+/** Docs distill notes, so a deleted workspace must not leave them behind. */
+export function removeKbDir(workspaceId: string): void {
+  fs.rmSync(kbDir(workspaceId), { recursive: true, force: true })
+}
+
 export function docPath(workspaceId: string, slug: string): string {
   return path.join(kbDir(workspaceId), `${slug}.md`)
 }
 
 export function indexPath(workspaceId: string): string {
   return path.join(kbDir(workspaceId), '_index.md')
+}
+
+/**
+ * The doc names as of the last successful sync. Dot-prefixed so it is not a
+ * `.md` file and never gets mistaken for a document or pushed to GitHub.
+ */
+export function syncStatePath(workspaceId: string): string {
+  return path.join(kbDir(workspaceId), '.sync-state.json')
 }
 
 /** Write via a temp file + rename so a crash mid-write can't truncate a doc. */

@@ -52,6 +52,14 @@ export function getLiveNotesByIds(workspaceId: string, ids: string[]): KbNote[] 
   return found
 }
 
+/** Every note citing this person — their name is baked into generated bodies. */
+export function noteIdsForPerson(personId: string): string[] {
+  const rows = getDb()
+    .prepare('SELECT id FROM notes WHERE person_id = ?')
+    .all(personId) as Array<{ id: string }>
+  return rows.map((r) => r.id)
+}
+
 export function getLiveNote(noteId: string): (KbNote & { workspaceId: string }) | null {
   const row = getDb()
     .prepare(`

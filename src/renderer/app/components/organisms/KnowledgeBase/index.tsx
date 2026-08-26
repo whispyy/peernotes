@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import styled from 'styled-components'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { KbAskResult, KbDocContent } from '@shared/types'
+import type { KbAskResult, KbDocContent, KbProgress } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { useKb } from '../../../hooks/useKb'
 import { useAiSettings } from '../../../hooks/useAiSettings'
@@ -20,7 +20,8 @@ function urlTransform(url: string): string {
 
 interface Props {
   workspaceId: string | null
-  onOpenNote: (noteId: string) => void
+  /** resolves false when the cited note no longer exists */
+  onOpenNote: (noteId: string) => Promise<boolean>
   onOpenSettings: () => void
   onAddNote: () => void
 }
@@ -359,6 +360,14 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+function formatProgress({ phase, done, total }: KbProgress): string {
+  return phase === 'filing' ? `Sorting note ${done} of ${total}…` : `Writing document ${done} of ${total}…`
+}
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? '' : 's'}`
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNote }: Props) {
@@ -367,14 +376,22 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
 
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [doc, setDoc] = useState<KbDocContent | null>(null)
-  const [busy, setBusy] = useState<'filing' | 'regenerating' | 'asking' | 'rebuilding' | null>(null)
+  // 'rewriting' is one document on demand; 'regenerating' is the stale sweep
+  const [busy, setBusy] = useState<'filing' | 'rewriting' | 'regenerating' | 'asking' | 'rebuilding' | null>(null)
   const [confirmRebuild, setConfirmRebuild] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<KbAskResult | null>(null)
+  const [progress, setProgress] = useState<KbProgress | null>(null)
 
   const topics = status.topics
+  // Enabled is not the same as usable — every action throws without both of these
+  const aiReady = aiSettings.enabled && !!aiSettings.apiKey && !!aiSettings.model
+  // Only the runs that work through a list can be stopped partway
+  const stoppable = busy === 'filing' || busy === 'rebuilding' || busy === 'regenerating'
+
+  useEffect(() => window.api.kb.onProgress(setProgress), [])
 
   // Select the first topic once the list loads, and recover if the selected
   // topic's file disappears (deleted from the folder, or pulled away by sync).
@@ -402,10 +419,14 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   }, [workspaceId, selectedSlug, status])
 
   const run = useCallback(
-    async (kind: 'filing' | 'regenerating' | 'asking' | 'rebuilding', action: () => Promise<string | null>) => {
+    async (
+      kind: 'filing' | 'rewriting' | 'regenerating' | 'asking' | 'rebuilding',
+      action: () => Promise<string | null>
+    ) => {
       setBusy(kind)
       setError(null)
       setNotice(null)
+      setProgress(null)
       try {
         const message = await action()
         if (message) setNotice(message)
@@ -413,6 +434,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
         setError(errorMessage(err))
       } finally {
         setBusy(null)
+        setProgress(null)
         refresh()
       }
     },
@@ -422,15 +444,18 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   const handleFileUnfiled = () => {
     if (!workspaceId) return
     run('filing', async () => {
-      const { filed, failed } = await window.api.kb.fileUnfiled(workspaceId)
-      if (filed === 0 && failed === 0) return 'Nothing left to sort.'
-      return `Filed ${filed} note${filed === 1 ? '' : 's'}${failed > 0 ? ` · ${failed} could not be filed` : ''}.`
+      const { filed, failed, cancelled } = await window.api.kb.fileUnfiled(workspaceId)
+      if (filed === 0 && failed === 0) return cancelled ? 'Stopped before any note was sorted.' : 'Nothing left to sort.'
+      const parts = [`Filed ${plural(filed, 'note')}`]
+      if (failed > 0) parts.push(`${failed} could not be filed`)
+      if (cancelled) parts.push('stopped early — the rest are still unfiled')
+      return `${parts.join(' · ')}.`
     })
   }
 
   const handleRegenerate = (slug: string) => {
     if (!workspaceId) return
-    run('regenerating', async () => {
+    run('rewriting', async () => {
       await window.api.kb.regenerate(workspaceId, slug)
       return null
     })
@@ -439,11 +464,11 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   const handleRegenerateStale = () => {
     if (!workspaceId) return
     run('regenerating', async () => {
-      const { regenerated, failed } = await window.api.kb.regenerateStale(workspaceId)
+      const { regenerated, failed, cancelled } = await window.api.kb.regenerateStale(workspaceId)
       if (failed.length > 0) {
         throw new Error(`Rewrote ${regenerated}, failed on ${failed.length}: ${failed[0].error}`)
       }
-      return `Rewrote ${regenerated} doc${regenerated === 1 ? '' : 's'}.`
+      return `Rewrote ${plural(regenerated, 'doc')}${cancelled ? ' · stopped early, the rest are still stale' : ''}.`
     })
   }
 
@@ -452,14 +477,16 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
     setConfirmRebuild(false)
     run('rebuilding', async () => {
       const r = await window.api.kb.rebuild(workspaceId)
-      const parts = [
-        `Rebuilt ${r.topics} topic${r.topics === 1 ? '' : 's'} from ${r.filed} of ${r.notes} note${r.notes === 1 ? '' : 's'}`,
-      ]
+      const parts = [`Rebuilt ${plural(r.topics, 'topic')} from ${r.filed} of ${plural(r.notes, 'note')}`]
       if (r.failed > 0) parts.push(`${r.failed} could not be filed`)
-      // The filing guard stops after three consecutive failures, so say so
-      // rather than leaving the untouched notes unexplained.
+      // Either the user stopped it or the filing guard tripped after three
+      // consecutive failures — say so rather than leaving notes unexplained.
       if (r.filed + r.failed < r.notes) {
-        parts.push(`stopped early — ${r.notes - r.filed} still unfiled, use Sort once the cause is fixed`)
+        parts.push(
+          r.cancelled
+            ? `stopped — ${r.notes - r.filed} still unfiled, use Sort to pick up where it left off`
+            : `stopped early — ${r.notes - r.filed} still unfiled, use Sort once the cause is fixed`
+        )
       }
       if (r.regenFailed.length > 0) {
         parts.push(`${r.regenFailed.length} document${r.regenFailed.length === 1 ? '' : 's'} failed to write`)
@@ -476,11 +503,17 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
     })
   }
 
+  const handleCitation = async (noteId: string) => {
+    if (await onOpenNote(noteId)) return
+    // The doc still cites a note that has since been deleted; a rewrite drops it.
+    setNotice('That note has been deleted — rewrite this topic to drop the citation.')
+  }
+
   const markdownComponents = {
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
       if (href?.startsWith(NOTE_LINK_PREFIX)) {
         const noteId = href.slice(NOTE_LINK_PREFIX.length)
-        return <Citation onClick={() => onOpenNote(noteId)}>{children}</Citation>
+        return <Citation onClick={() => handleCitation(noteId)}>{children}</Citation>
       }
       return (
         <a href={href} onClick={(e) => { e.preventDefault(); if (href) window.open(href) }}>
@@ -490,7 +523,10 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
     },
   }
 
-  if (!aiSettings.enabled) {
+  if (!aiReady) {
+    const missing = !aiSettings.apiKey && !aiSettings.model
+      ? 'an OpenRouter key and a model'
+      : !aiSettings.apiKey ? 'an OpenRouter key' : 'a model'
     return (
       <Empty>
         <EmptyGlyph>✦</EmptyGlyph>
@@ -501,7 +537,11 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
           months of entries.
         </EmptyText>
         <EmptyExample>“What do people keep saying about onboarding?”</EmptyExample>
-        <EmptyText>Switch on AI in Settings, add an OpenRouter key and a model, and it starts building.</EmptyText>
+        <EmptyText>
+          {aiSettings.enabled
+            ? `AI is on, but there is still ${missing} to set before anything can be built.`
+            : 'Switch on AI in Settings, add an OpenRouter key and a model, and it starts building.'}
+        </EmptyText>
         <Button $variant="primary" $size="sm" onClick={onOpenSettings}>
           Open Settings
         </Button>
@@ -543,7 +583,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
                 placeholder="Ask a question…"
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAsk()
+                  if (e.key === 'Enter' && busy === null) handleAsk()
                   if (e.key === 'Escape') { setQuestion(''); setAnswer(null) }
                 }}
               />
@@ -590,7 +630,19 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
           >
             Folder
           </Button>
+          {stoppable && (
+            <Button
+              $variant="ghost"
+              $size="sm"
+              onClick={() => window.api.kb.cancel()}
+              title="Finishes the note it is on, then stops — everything filed so far is kept"
+            >
+              Stop
+            </Button>
+          )}
         </ActionRow>
+
+        {progress && busy !== null && <HintText>{formatProgress(progress)}</HintText>}
 
         {confirmRebuild && (
           <ConfirmBar>
@@ -649,7 +701,7 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
                   disabled={busy !== null}
                   title="Rewrites the whole document from its notes — manual edits are not kept"
                 >
-                  {busy === 'regenerating' ? '✦ Rewriting…' : '✦ Rewrite'}
+                  {busy === 'rewriting' ? '✦ Rewriting…' : '✦ Rewrite'}
                 </Button>
               </DocMeta>
               <Prose>

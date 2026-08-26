@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
 
 declare global {
   interface Window {
@@ -79,8 +79,10 @@ declare global {
         regenerateStale: (workspaceId: string) => Promise<KbRegenerateResult>
         rebuild: (workspaceId: string) => Promise<KbRebuildResult>
         ask: (workspaceId: string, question: string) => Promise<KbAskResult>
+        cancel: () => Promise<void>
         openFolder: (workspaceId: string) => Promise<void>
         onUpdated: (cb: () => void) => (() => void)
+        onProgress: (cb: (progress: KbProgress) => void) => (() => void)
       }
       ai: {
         verify: () => Promise<AiVerifyResult>

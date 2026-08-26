@@ -202,6 +202,8 @@ export interface KbAskResult {
 export interface KbFileResult {
   filed: number
   failed: number
+  /** the user stopped it partway — the rest stays unfiled */
+  cancelled: boolean
 }
 
 export interface KbRebuildResult {
@@ -211,9 +213,18 @@ export interface KbRebuildResult {
   topics: number
   regenerated: number
   regenFailed: Array<{ slug: string; error: string }>
+  cancelled: boolean
 }
 
 export interface KbRegenerateResult {
   regenerated: number
   failed: Array<{ slug: string; error: string }>
+  cancelled: boolean
+}
+
+/** Emitted while a long run works through its notes, so the view can count up. */
+export interface KbProgress {
+  phase: 'filing' | 'writing'
+  done: number
+  total: number
 }

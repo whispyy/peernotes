@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbAskTurn, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -121,8 +121,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('kb:regenerate-stale', workspaceId),
     rebuild: (workspaceId: string): Promise<KbRebuildResult> =>
       ipcRenderer.invoke('kb:rebuild', workspaceId),
-    ask: (workspaceId: string, question: string): Promise<KbAskResult> =>
-      ipcRenderer.invoke('kb:ask', workspaceId, question),
+    ask: (workspaceId: string, question: string, history: KbAskTurn[] = []): Promise<KbAskResult> =>
+      ipcRenderer.invoke('kb:ask', workspaceId, question, history),
     cancel: (): Promise<void> => ipcRenderer.invoke('kb:cancel'),
     openFolder: (workspaceId: string): Promise<void> =>
       ipcRenderer.invoke('kb:open-folder', workspaceId),

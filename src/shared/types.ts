@@ -199,6 +199,16 @@ export interface KbAskResult {
   sources: Array<{ slug: string; topic: string }>
 }
 
+/**
+ * One exchange in an Ask conversation. Replayed with the next question so a
+ * follow-up can lean on what was already said; `sources` is carried so the
+ * documents the answer came from stay in scope even when the follow-up is too
+ * short to find them by keyword.
+ */
+export interface KbAskTurn extends KbAskResult {
+  question: string
+}
+
 export interface KbFileResult {
   filed: number
   failed: number

@@ -85,10 +85,12 @@ interface ChatParams {
   model: string
   system: string
   user: string
+  /** earlier turns, replayed between the system prompt and the new question */
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>
   timeoutMs?: number
 }
 
-export async function chat({ config, model, system, user, timeoutMs = 90_000 }: ChatParams): Promise<string> {
+export async function chat({ config, model, system, user, history, timeoutMs = 90_000 }: ChatParams): Promise<string> {
   const response = await net.fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -101,6 +103,7 @@ export async function chat({ config, model, system, user, timeoutMs = 90_000 }: 
       model,
       messages: [
         { role: 'system', content: system },
+        ...(history ?? []),
         { role: 'user', content: user },
       ],
     }),

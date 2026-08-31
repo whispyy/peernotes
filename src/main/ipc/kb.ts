@@ -22,6 +22,7 @@ import { isKbAiReady, readKbAiConfig } from '../kb/openrouter'
 import { ensureKbDir } from '../kb/paths'
 import type {
   KbAskResult,
+  KbAskTurn,
   KbDocContent,
   KbFileResult,
   KbRebuildResult,
@@ -265,8 +266,12 @@ export function registerKbHandlers(): void {
   // stopping still holds the queue.
   ipcMain.handle('kb:cancel', (): void => requestCancel())
 
-  ipcMain.handle('kb:ask', (_e, workspaceId: string, question: string): Promise<KbAskResult> =>
-    askKb(workspaceId, question)
+  // Deliberately outside the filing queue: a question is read-only and must not
+  // wait behind a rebuild. History comes from the renderer, which owns the thread.
+  ipcMain.handle(
+    'kb:ask',
+    (_e, workspaceId: string, question: string, history: KbAskTurn[] = []): Promise<KbAskResult> =>
+      askKb(workspaceId, question, history)
   )
 
   ipcMain.handle('kb:open-folder', async (_e, workspaceId: string): Promise<void> => {

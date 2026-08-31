@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import styled from 'styled-components'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import type { KbAskResult, KbDocContent, KbProgress } from '@shared/types'
+import type { KbAskTurn, KbDocContent, KbProgress } from '@shared/types'
 import { Button } from '../../atoms/Button'
 import { useKb } from '../../../hooks/useKb'
 import { useAiSettings } from '../../../hooks/useAiSettings'
@@ -262,6 +262,25 @@ const AnswerHeader = styled.div`
   letter-spacing: 0.06em;
 `
 
+/** One question-and-answer pair inside the thread. */
+const Turn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.spacing['2']};
+
+  & + & {
+    border-top: 1px solid ${({ theme }) => theme.colors.border.subtle};
+    padding-top: ${({ theme }) => theme.spacing['3']};
+  }
+`
+
+const TurnQuestion = styled.div`
+  font-size: ${({ theme }) => theme.typography.size.sm};
+  font-weight: ${({ theme }) => theme.typography.weight.semibold};
+  color: ${({ theme }) => theme.colors.text.secondary};
+  user-select: text;
+`
+
 const SourceRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -358,8 +377,9 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState<KbAskResult | null>(null)
+  const [thread, setThread] = useState<KbAskTurn[]>([])
   const [progress, setProgress] = useState<KbProgress | null>(null)
+  const threadRef = useRef<HTMLDivElement>(null)
 
   const topics = status.topics
   // Enabled is not the same as usable — every action throws without both of these
@@ -368,6 +388,12 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
   const stoppable = busy === 'filing' || busy === 'regenerating'
 
   useEffect(() => window.api.kb.onProgress(setProgress), [])
+
+  // The newest answer is at the bottom, so follow it as the thread grows
+  useEffect(() => {
+    const card = threadRef.current
+    if (card) card.scrollTop = card.scrollHeight
+  }, [thread])
 
   // Select the first topic once the list loads, and recover if the selected
   // topic's file disappears (deleted from the folder, or pulled away by sync).
@@ -450,8 +476,12 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
 
   const handleAsk = () => {
     if (!workspaceId || !question.trim()) return
+    const asked = question.trim()
     run('asking', async () => {
-      setAnswer(await window.api.kb.ask(workspaceId, question))
+      const result = await window.api.kb.ask(workspaceId, asked, thread)
+      setThread((prev) => [...prev, { question: asked, ...result }])
+      // Cleared only once the answer is in, so a failed question can be retried
+      setQuestion('')
       return null
     })
   }
@@ -533,11 +563,11 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
             <>
               <AskInput
                 value={question}
-                placeholder="Ask a question…"
+                placeholder={thread.length > 0 ? 'Ask a follow-up…' : 'Ask a question…'}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && busy === null) handleAsk()
-                  if (e.key === 'Escape') { setQuestion(''); setAnswer(null) }
+                  if (e.key === 'Escape') setQuestion('')
                 }}
               />
               <Button $variant="primary" $size="sm" onClick={handleAsk} disabled={busy !== null || !question.trim()}>
@@ -581,26 +611,35 @@ export function KnowledgeBase({ workspaceId, onOpenNote, onOpenSettings, onAddNo
         {error && <ErrorText>{error}</ErrorText>}
         {notice && !error && <HintText>{notice}</HintText>}
 
-        {answer && (
-          <AnswerCard>
+        {thread.length > 0 && (
+          <AnswerCard ref={threadRef}>
             <AnswerHeader>
-              Answer
-              <Button $variant="ghost" $size="sm" onClick={() => setAnswer(null)}>Dismiss</Button>
+              {thread.length === 1 ? 'Answer' : `${thread.length} questions`}
+              <Button $variant="ghost" $size="sm" onClick={() => setThread([])}>Dismiss</Button>
             </AnswerHeader>
-            <Prose>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={urlTransform}>
-                {answer.answer}
-              </ReactMarkdown>
-            </Prose>
-            {answer.sources.length > 0 && (
-              <SourceRow>
-                {answer.sources.map((source) => (
-                  <SourceChip key={source.slug} onClick={() => setSelectedSlug(source.slug)}>
-                    {source.topic}
-                  </SourceChip>
-                ))}
-              </SourceRow>
-            )}
+            {thread.map((turn, index) => (
+              <Turn key={index}>
+                <TurnQuestion>{turn.question}</TurnQuestion>
+                <Prose>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents} urlTransform={urlTransform}>
+                    {turn.answer}
+                  </ReactMarkdown>
+                </Prose>
+                {/* Only the newest turn lists its topics — repeating the chips down
+                    a long thread buries the answers. Earlier turns keep their
+                    inline citations, which are the more precise provenance. */}
+                {index === thread.length - 1 && turn.sources.length > 0 && (
+                  <SourceRow>
+                    {turn.sources.map((source) => (
+                      <SourceChip key={source.slug} onClick={() => setSelectedSlug(source.slug)}>
+                        {source.topic}
+                      </SourceChip>
+                    ))}
+                  </SourceRow>
+                )}
+              </Turn>
+            ))}
+            {busy === 'asking' && <HintText>Thinking…</HintText>}
           </AnswerCard>
         )}
 

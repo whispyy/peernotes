@@ -1,9 +1,22 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import type { KbProgress } from '@shared/types'
 
 let quickEntryWindow: BrowserWindow | null = null
 let mainWindow: BrowserWindow | null = null
+
+/**
+ * AI-written knowledge base docs can contain any link the model felt like
+ * emitting. Without this, window.open() gives it a chromeless BrowserWindow
+ * inside the app; send web links to the real browser and refuse the rest.
+ */
+function openLinksExternally(win: BrowserWindow): void {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+}
 
 export function createMainWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
@@ -21,6 +34,8 @@ export function createMainWindow(): BrowserWindow {
       nodeIntegration: false
     }
   })
+
+  openLinksExternally(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
@@ -76,6 +91,8 @@ export function createQuickEntryWindow(): BrowserWindow {
     }
   })
 
+  openLinksExternally(quickEntryWindow)
+
   quickEntryWindow.on('closed', () => { quickEntryWindow = null })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -104,6 +121,14 @@ export function notifyWorkspaceChanged(): void {
 
 export function notifySyncUpdated(): void {
   mainWindow?.webContents.send('sync:updated')
+}
+
+export function notifyKbUpdated(): void {
+  mainWindow?.webContents.send('kb:updated')
+}
+
+export function notifyKbProgress(progress: KbProgress): void {
+  mainWindow?.webContents.send('kb:progress', progress)
 }
 
 export function toggleQuickEntry(): void {

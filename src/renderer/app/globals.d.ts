@@ -1,4 +1,4 @@
-import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment } from '@shared/types'
+import type { Person, Note, Sentiment, ExportResultV2, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbAskTurn, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
 
 declare global {
   interface Window {
@@ -37,6 +37,7 @@ declare global {
         count: (workspaceId: string, from?: string, to?: string) => Promise<number>
         search: (workspaceId: string, query: string) => Promise<Note[]>
         countByPerson: (workspaceId: string) => Promise<Record<string, number>>
+        get: (id: string) => Promise<Note | null>
         listForPerson: (personId: string, offset?: number, limit?: number) => Promise<Note[]>
         listForPersonInRange: (personId: string, from: string, to: string) => Promise<Note[]>
         add: (payload: { personId: string; sentiment: Sentiment; note: string }) => Promise<Note>
@@ -70,10 +71,31 @@ declare global {
         get: () => Promise<string>
         set: (shortcut: string) => Promise<{ ok: boolean; error?: string }>
       }
+      kb: {
+        status: (workspaceId: string) => Promise<KbStatus>
+        read: (workspaceId: string, slug: string) => Promise<KbDocContent | null>
+        fileUnfiled: (workspaceId: string) => Promise<KbFileResult>
+        regenerate: (workspaceId: string, slug: string) => Promise<void>
+        regenerateStale: (workspaceId: string) => Promise<KbRegenerateResult>
+        rebuild: (workspaceId: string) => Promise<KbRebuildResult>
+        ask: (workspaceId: string, question: string, history?: KbAskTurn[]) => Promise<KbAskResult>
+        cancel: () => Promise<void>
+        openFolder: (workspaceId: string) => Promise<void>
+        onUpdated: (cb: () => void) => (() => void)
+        onProgress: (cb: (progress: KbProgress) => void) => (() => void)
+      }
       ai: {
+        verify: () => Promise<AiVerifyResult>
         settings: {
           get: () => Promise<AiSettings>
-          set: (patch: { enabled?: boolean; apiKey?: string; model?: string }) => Promise<void>
+          set: (patch: {
+            enabled?: boolean
+            apiKey?: string
+            model?: string
+            kbAutoFile?: boolean
+            kbRegenThreshold?: number
+            kbClassifierModel?: string
+          }) => Promise<void>
         }
         purposes: {
           add: (payload: { name: string; systemPrompt: string }) => Promise<AiPurposePreset>

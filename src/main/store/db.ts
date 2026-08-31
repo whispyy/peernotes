@@ -213,4 +213,17 @@ function migrate(db: Database.Database): void {
     })()
     db.pragma('user_version = 10')
   }
+
+  if (version < 11) {
+    // Knowledge base settings. The docs themselves are .md files on disk —
+    // no table here, all KB state lives in each file's frontmatter.
+    db.transaction(() => {
+      db.exec(`
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('kb_auto_file', 'true');
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('kb_regen_threshold', '3');
+        INSERT OR IGNORE INTO ai_settings (key, value) VALUES ('kb_classifier_model', '');
+      `)
+    })()
+    db.pragma('user_version = 11')
+  }
 }

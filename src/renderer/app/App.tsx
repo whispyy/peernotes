@@ -4,8 +4,8 @@ import { usePeople } from './hooks/usePeople'
 import { useNotes } from './hooks/useNotes'
 import { useWorkspaces } from './hooks/useWorkspaces'
 import { Timeline } from './components/organisms/Timeline'
-import { PersonView } from './components/organisms/PersonView'
-import { PeopleManager } from './components/organisms/PeopleManager'
+import { PeopleView } from './components/organisms/PeopleView'
+import { KnowledgeBase } from './components/organisms/KnowledgeBase'
 import { Settings } from './components/organisms/Settings'
 import { ExportModal } from './components/organisms/ExportModal'
 import { ImportModal } from './components/organisms/ImportModal'
@@ -15,7 +15,7 @@ import { WorkspaceSelector } from './components/organisms/WorkspaceSelector'
 import type { Note } from '@shared/types'
 import type { ThemeMode } from './hooks/useThemeMode'
 
-type Tab = 'timeline' | 'person' | 'people' | 'settings'
+type Tab = 'timeline' | 'people' | 'knowledge' | 'settings'
 
 interface Props {
   mode: ThemeMode
@@ -215,11 +215,20 @@ export function App({ mode, setThemeMode }: Props) {
     }
   }
 
-  const showSearch = activeTab !== 'settings'
+  const showSearch = activeTab !== 'settings' && activeTab !== 'knowledge'
 
   const handleExpand = (note: Note, list: Note[]) => {
     setExpandedNote(note)
     setExpandedList(list)
+  }
+
+  // Knowledge base citations can point at notes outside the loaded page, and at
+  // notes that have since been deleted — the caller says so rather than no-op.
+  const handleOpenNoteById = async (noteId: string): Promise<boolean> => {
+    const note = notes.find((n) => n.id === noteId) ?? (await window.api.notes.get(noteId))
+    if (!note) return false
+    handleExpand(note, [note])
+    return true
   }
 
   return (
@@ -240,11 +249,11 @@ export function App({ mode, setThemeMode }: Props) {
             <Tab $active={activeTab === 'timeline'} onClick={() => setActiveTab('timeline')}>
               Timeline
             </Tab>
-            <Tab $active={activeTab === 'person'} onClick={() => setActiveTab('person')}>
-              By Person
-            </Tab>
             <Tab $active={activeTab === 'people'} onClick={() => setActiveTab('people')}>
-              Team
+              People
+            </Tab>
+            <Tab $active={activeTab === 'knowledge'} onClick={() => setActiveTab('knowledge')}>
+              Knowledge
             </Tab>
             <Tab $active={activeTab === 'settings'} onClick={() => setActiveTab('settings')}>
               Settings
@@ -285,30 +294,32 @@ export function App({ mode, setThemeMode }: Props) {
               onLoadMore={loadMore}
             />
           )}
-          {activeTab === 'person' && (
-            <PersonView
+          {activeTab === 'people' && (
+            <PeopleView
               people={people}
+              archivedPeople={archivedPeople}
               workspaceId={workspaceId}
               countByPerson={countByPerson}
               peopleById={peopleById}
+              searchQuery={searchQuery}
+              isSearching={isSearching}
               onDelete={removeNote}
               onAddNote={addNote}
               onEdit={setEditingNote}
               onExpand={handleExpand}
-              searchQuery={searchQuery}
-              isSearching={isSearching}
-            />
-          )}
-          {activeTab === 'people' && (
-            <PeopleManager
-              people={people}
-              archivedPeople={archivedPeople}
-              noteCountById={countByPerson}
               onAdd={addPerson}
               onRename={renamePerson}
               onArchive={archivePerson}
               onRestore={restorePerson}
               onRemove={removePerson}
+            />
+          )}
+          {activeTab === 'knowledge' && (
+            <KnowledgeBase
+              workspaceId={workspaceId}
+              onOpenNote={handleOpenNoteById}
+              onOpenSettings={() => setActiveTab('settings')}
+              onAddNote={() => setAddNoteOpen(true)}
             />
           )}
           {activeTab === 'settings' && (

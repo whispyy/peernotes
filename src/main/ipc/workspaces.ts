@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { getDb } from '../store/db'
 import { notifyWorkspaceChanged } from '../windows'
+import { removeKbDir } from '../kb/paths'
 import type { Workspace } from '@shared/types'
 
 let activeWorkspaceId: string | null = null
@@ -54,6 +55,9 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle('workspace:remove', (_e, id: string): void => {
     if (!id) return
     getDb().prepare('DELETE FROM workspaces WHERE id = ?').run(id)
+    // Docs are distilled from the notes that just went with the workspace, so
+    // leaving the folder behind would keep observations about people around.
+    removeKbDir(id)
     if (activeWorkspaceId === id) {
       activeWorkspaceId = null
       getDb().prepare("DELETE FROM app_settings WHERE key = 'active_workspace_id'").run()

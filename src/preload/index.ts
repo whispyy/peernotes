@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, Workspace, SyncSettings, ICloudSyncSettings, Attachment } from '@shared/types'
+import type { Person, Note, Sentiment, ImportPayload, ImportResult, AiSettings, AiPurposePreset, AiVerifyResult, Workspace, SyncSettings, ICloudSyncSettings, Attachment, KbStatus, KbDocContent, KbAskResult, KbAskTurn, KbFileResult, KbRegenerateResult, KbRebuildResult, KbProgress } from '@shared/types'
 
 contextBridge.exposeInMainWorld('api', {
   data: {
@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('notes:search', workspaceId, query),
     countByPerson: (workspaceId: string): Promise<Record<string, number>> =>
       ipcRenderer.invoke('notes:count-by-person', workspaceId),
+    get: (id: string): Promise<Note | null> => ipcRenderer.invoke('notes:get', id),
     listForPerson: (personId: string, offset = 0, limit = 100): Promise<Note[]> =>
       ipcRenderer.invoke('notes:list-for-person', personId, offset, limit),
     listForPersonInRange: (personId: string, from: string, to: string): Promise<Note[]> =>
@@ -108,11 +109,45 @@ contextBridge.exposeInMainWorld('api', {
     set: (shortcut: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('shortcut:set', shortcut),
   },
+  kb: {
+    status: (workspaceId: string): Promise<KbStatus> => ipcRenderer.invoke('kb:status', workspaceId),
+    read: (workspaceId: string, slug: string): Promise<KbDocContent | null> =>
+      ipcRenderer.invoke('kb:read', workspaceId, slug),
+    fileUnfiled: (workspaceId: string): Promise<KbFileResult> =>
+      ipcRenderer.invoke('kb:file-unfiled', workspaceId),
+    regenerate: (workspaceId: string, slug: string): Promise<void> =>
+      ipcRenderer.invoke('kb:regenerate', workspaceId, slug),
+    regenerateStale: (workspaceId: string): Promise<KbRegenerateResult> =>
+      ipcRenderer.invoke('kb:regenerate-stale', workspaceId),
+    rebuild: (workspaceId: string): Promise<KbRebuildResult> =>
+      ipcRenderer.invoke('kb:rebuild', workspaceId),
+    ask: (workspaceId: string, question: string, history: KbAskTurn[] = []): Promise<KbAskResult> =>
+      ipcRenderer.invoke('kb:ask', workspaceId, question, history),
+    cancel: (): Promise<void> => ipcRenderer.invoke('kb:cancel'),
+    openFolder: (workspaceId: string): Promise<void> =>
+      ipcRenderer.invoke('kb:open-folder', workspaceId),
+    onUpdated: (cb: () => void): (() => void) => {
+      ipcRenderer.on('kb:updated', cb)
+      return () => ipcRenderer.removeListener('kb:updated', cb)
+    },
+    onProgress: (cb: (progress: KbProgress) => void): (() => void) => {
+      const handler = (_e: unknown, progress: KbProgress): void => cb(progress)
+      ipcRenderer.on('kb:progress', handler)
+      return () => ipcRenderer.removeListener('kb:progress', handler)
+    },
+  },
   ai: {
+    verify: (): Promise<AiVerifyResult> => ipcRenderer.invoke('ai:verify'),
     settings: {
       get: (): Promise<AiSettings> => ipcRenderer.invoke('ai:settings:get'),
-      set: (patch: { enabled?: boolean; apiKey?: string; model?: string }): Promise<void> =>
-        ipcRenderer.invoke('ai:settings:set', patch),
+      set: (patch: {
+        enabled?: boolean
+        apiKey?: string
+        model?: string
+        kbAutoFile?: boolean
+        kbRegenThreshold?: number
+        kbClassifierModel?: string
+      }): Promise<void> => ipcRenderer.invoke('ai:settings:set', patch),
     },
     purposes: {
       add: (payload: { name: string; systemPrompt: string }): Promise<AiPurposePreset> =>

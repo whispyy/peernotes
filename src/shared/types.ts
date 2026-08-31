@@ -142,4 +142,99 @@ export interface AiSettings {
   apiKey: string
   model: string
   purposes: AiPurposePreset[]
+  /** file each new note into knowledge base topics as it is saved */
+  kbAutoFile: boolean
+  /** unreflected notes needed before a topic doc rewrites itself; 0 disables */
+  kbRegenThreshold: number
+  /** cheaper model for per-note filing; empty falls back to `model` */
+  kbClassifierModel: string
+}
+
+/** Outcome of checking the saved OpenRouter key against the provider. */
+export interface AiVerifyResult {
+  ok: boolean
+  /** key name as OpenRouter reports it */
+  label?: string
+  /** credits spent on the key */
+  usage?: number
+  /** credit ceiling; null when the key is uncapped */
+  limit?: number | null
+  /** why it failed, ready to show as-is */
+  error?: string
+}
+
+// ── Knowledge base ────────────────────────────────────────────────────────────
+
+export interface KbTopic {
+  slug: string
+  topic: string
+  noteCount: number
+  /** notes filed under the topic that its body doesn't reflect yet */
+  pendingCount: number
+  generatedAt: string | null
+  stale: boolean
+}
+
+export interface KbStatus {
+  topics: KbTopic[]
+  /** live notes in the workspace — what a rebuild would re-file */
+  noteCount: number
+  unfiledCount: number
+  staleCount: number
+  folder: string
+}
+
+export interface KbDocContent {
+  slug: string
+  topic: string
+  body: string
+  noteIds: string[]
+  generatedAt: string | null
+  stale: boolean
+  pendingCount: number
+}
+
+export interface KbAskResult {
+  answer: string
+  sources: Array<{ slug: string; topic: string }>
+}
+
+/**
+ * One exchange in an Ask conversation. Replayed with the next question so a
+ * follow-up can lean on what was already said; `sources` is carried so the
+ * documents the answer came from stay in scope even when the follow-up is too
+ * short to find them by keyword.
+ */
+export interface KbAskTurn extends KbAskResult {
+  question: string
+}
+
+export interface KbFileResult {
+  filed: number
+  failed: number
+  /** the user stopped it partway — the rest stays unfiled */
+  cancelled: boolean
+}
+
+export interface KbRebuildResult {
+  notes: number
+  filed: number
+  failed: number
+  topics: number
+  regenerated: number
+  regenFailed: Array<{ slug: string; error: string }>
+  cancelled: boolean
+}
+
+export interface KbRegenerateResult {
+  regenerated: number
+  failed: Array<{ slug: string; error: string }>
+  cancelled: boolean
+}
+
+/** Emitted while a long run works through its notes, so the view can count up. */
+export interface KbProgress {
+  phase: 'filing' | 'writing'
+  done: number
+  total: number
 }

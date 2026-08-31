@@ -5,6 +5,7 @@ import { notifyMainWindow } from '../windows'
 import { VALID_SENTIMENTS, NOTE_MAX_LENGTH } from '@shared/types'
 import type { Note, Sentiment } from '@shared/types'
 import { deleteAttachmentFiles } from './attachments'
+import { scheduleCitationRefresh, scheduleNoteFiling, scheduleNoteRefiling, scheduleNoteUnfiling } from './kb'
 
 export const SELECT_NOTE = `
   SELECT id, person_id AS personId, sentiment, note, timestamp
@@ -101,6 +102,12 @@ export function registerNotesHandlers(): void {
       .all(personId, fromIso, toIso) as Note[]
   })
 
+  // Used by knowledge base citations, which point at notes outside the loaded page
+  ipcMain.handle('notes:get', (_e, id: string): Note | null => {
+    const row = getDb().prepare(`${SELECT_NOTE} WHERE id = ?`).get(id) as Note | undefined
+    return row ?? null
+  })
+
   ipcMain.handle('notes:list-for-person', (_e, personId: string, offset = 0, limit = 100): Note[] => {
     return getDb()
       .prepare(`
@@ -139,6 +146,7 @@ export function registerNotesHandlers(): void {
         'INSERT INTO notes (id, person_id, sentiment, note, timestamp) VALUES (?, ?, ?, ?, ?)'
       ).run(n.id, n.personId, n.sentiment, n.note, n.timestamp)
 
+      scheduleNoteFiling(n.id)
       notifyMainWindow()
       return n
     }
@@ -150,8 +158,14 @@ export function registerNotesHandlers(): void {
     const atts = db
       .prepare('SELECT id, mime_type AS mimeType FROM note_attachments WHERE note_id = ?')
       .all(id) as Array<{ id: string; mimeType: string }>
+    // Read the workspace before the row disappears — the KB folder is keyed by it.
+    const owner = db
+      .prepare(`SELECT p.workspace_id AS workspaceId FROM notes n
+                INNER JOIN people p ON p.id = n.person_id WHERE n.id = ?`)
+      .get(id) as { workspaceId: string } | undefined
     db.prepare('DELETE FROM notes WHERE id = ?').run(id)  // CASCADE deletes attachment rows
     deleteAttachmentFiles(atts)
+    if (owner) scheduleNoteUnfiling(owner.workspaceId, id)
     notifyMainWindow()
   })
 
@@ -183,6 +197,15 @@ export function registerNotesHandlers(): void {
         db.prepare('UPDATE notes SET sentiment = ?, note = ? WHERE id = ?').run(sentiment, trimmed, id)
       }
 
+      if (trimmed !== existing.note) {
+        scheduleNoteRefiling(id)
+      } else if (newPersonId !== existing.personId || sentiment !== existing.sentiment) {
+        // The text is what decides the topic, so filing still holds — but the
+        // generated prose attributes this note to the old person or mood.
+        const owner = db.prepare('SELECT workspace_id AS workspaceId FROM people WHERE id = ?')
+          .get(newPersonId) as { workspaceId: string } | undefined
+        if (owner) scheduleCitationRefresh(owner.workspaceId, [id])
+      }
       notifyMainWindow()
       return { ...existing, personId: newPersonId, sentiment, note: trimmed }
     }

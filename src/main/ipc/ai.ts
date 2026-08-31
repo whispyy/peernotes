@@ -1,9 +1,19 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { getDb } from '../store/db'
-import type { AiSettings, AiPurposePreset } from '@shared/types'
+import { verifyApiKey } from '../kb/openrouter'
+import type { AiSettings, AiPurposePreset, AiVerifyResult } from '@shared/types'
 
 export function registerAiHandlers(): void {
+  // Verifies whatever is saved, not a draft — the key field persists on change,
+  // so this always reflects the key the rest of the app will actually use.
+  ipcMain.handle('ai:verify', (): Promise<AiVerifyResult> => {
+    const row = getDb()
+      .prepare(`SELECT value FROM ai_settings WHERE key = 'api_key'`)
+      .get() as { value: string } | undefined
+    return verifyApiKey(row?.value ?? '')
+  })
+
   ipcMain.handle('ai:settings:get', (): AiSettings => {
     const db = getDb()
     const rows = db.prepare('SELECT key, value FROM ai_settings').all() as { key: string; value: string }[]
@@ -11,22 +21,41 @@ export function registerAiHandlers(): void {
     const purposes = db
       .prepare('SELECT id, name, system_prompt as systemPrompt FROM ai_purposes ORDER BY sort_order')
       .all() as AiPurposePreset[]
+    const threshold = Number.parseInt(map.kb_regen_threshold ?? '3', 10)
     return {
       enabled: map.enabled === 'true',
       apiKey: map.api_key ?? '',
       model: map.model ?? '',
       purposes,
+      kbAutoFile: (map.kb_auto_file ?? 'true') === 'true',
+      kbRegenThreshold: Number.isFinite(threshold) ? threshold : 3,
+      kbClassifierModel: map.kb_classifier_model ?? '',
     }
   })
 
   ipcMain.handle(
     'ai:settings:set',
-    (_e, patch: { enabled?: boolean; apiKey?: string; model?: string }): void => {
+    (
+      _e,
+      patch: {
+        enabled?: boolean
+        apiKey?: string
+        model?: string
+        kbAutoFile?: boolean
+        kbRegenThreshold?: number
+        kbClassifierModel?: string
+      }
+    ): void => {
       const db = getDb()
       const upsert = db.prepare('INSERT OR REPLACE INTO ai_settings (key, value) VALUES (?, ?)')
       if (patch.enabled !== undefined) upsert.run('enabled', String(patch.enabled))
       if (patch.apiKey !== undefined) upsert.run('api_key', patch.apiKey)
       if (patch.model !== undefined) upsert.run('model', patch.model)
+      if (patch.kbAutoFile !== undefined) upsert.run('kb_auto_file', String(patch.kbAutoFile))
+      if (patch.kbRegenThreshold !== undefined) {
+        upsert.run('kb_regen_threshold', String(Math.max(0, Math.trunc(patch.kbRegenThreshold))))
+      }
+      if (patch.kbClassifierModel !== undefined) upsert.run('kb_classifier_model', patch.kbClassifierModel)
     }
   )
 

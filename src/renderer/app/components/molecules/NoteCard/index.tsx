@@ -7,6 +7,7 @@ import { SENTIMENT_LABELS } from '@shared/types'
 import type { Note, Person, Attachment } from '@shared/types'
 import { Badge } from '../../atoms/Badge'
 import { Avatar } from '../../atoms/Avatar'
+import { escapeRegex } from '../../../utils/escapeRegex'
 
 interface Props {
   note: Note
@@ -300,10 +301,6 @@ function formatDate(iso: string): string {
     day: 'numeric',
     year: 'numeric'
   })
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function highlightNode(node: ReactNode, query: string): ReactNode {

@@ -1,12 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useHtmlPaste } from '../../../hooks/useHtmlPaste'
 import styled from 'styled-components'
 import type { Note, Person, Sentiment, Attachment } from '@shared/types'
 import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
 import { Button } from '../../atoms/Button'
-import { TextArea } from '../../atoms/TextArea'
 import { PersonSelector } from '../../molecules/PersonSelector'
 import { SentimentPicker, PersonSentimentRow } from '../../molecules/SentimentPicker'
+import { NoteEditor } from '../NoteEditor'
 import {
   ModalBackdrop, Card, Header, Title, CloseBtn,
   Divider, Footer
@@ -208,8 +207,6 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
   }
 
-  const handlePaste = useHtmlPaste(note, setNote, NOTE_MAX_LENGTH)
-
   const personChanged = isEditing && selectedPerson?.id !== initialPerson?.id
 
   const canSave = !!note.trim() && !saving && !!selectedPerson
@@ -234,11 +231,10 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
             <SentimentPicker value={sentiment} onChange={setSentiment} compact />
           </PersonSentimentRow>
 
-          <TextArea
+          <NoteEditor
             placeholder="What happened…"
             value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
-            onPaste={handlePaste}
+            onChange={setNote}
             rows={5}
             autoFocus={isEditing}
           />

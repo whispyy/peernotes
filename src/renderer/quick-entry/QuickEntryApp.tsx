@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useHtmlPaste } from '../app/hooks/useHtmlPaste'
 import styled, { createGlobalStyle } from 'styled-components'
 import type { Person, Sentiment, Workspace } from '@shared/types'
 import { NOTE_MAX_LENGTH, MAX_ATTACHMENTS_PER_NOTE } from '@shared/types'
 import { PersonSelector } from '../app/components/molecules/PersonSelector'
 import { SentimentPicker, PersonSentimentRow } from '../app/components/molecules/SentimentPicker'
 import { Button } from '../app/components/atoms/Button'
-import { TextArea } from '../app/components/atoms/TextArea'
+import { NoteEditor } from '../app/components/organisms/NoteEditor'
 
 const GlobalStyle = createGlobalStyle`
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -94,7 +93,7 @@ const CloseBtn = styled.button`
   &:hover { color: ${({ theme }) => theme.colors.text.primary}; }
 `
 
-const StyledTextArea = styled(TextArea)`
+const StyledNoteEditor = styled(NoteEditor)`
   flex: 1;
 `
 
@@ -369,8 +368,6 @@ export function QuickEntryApp() {
     }
   }, [selectedPerson, sentiment, note, stagedImages])
 
-  const handlePaste = useHtmlPaste(note, setNote, NOTE_MAX_LENGTH)
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave()
     if (e.key === 'Escape') {
@@ -429,11 +426,10 @@ export function QuickEntryApp() {
             <SentimentPicker value={sentiment} onChange={setSentiment} compact />
           </PersonSentimentRow>
 
-          <StyledTextArea
+          <StyledNoteEditor
             placeholder="What happened…"
             value={note}
-            onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX_LENGTH))}
-            onPaste={handlePaste}
+            onChange={setNote}
             rows={4}
           />
 

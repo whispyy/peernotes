@@ -1,5 +1,9 @@
-import React from 'react'
+import React, { useRef, useState, type ReactNode } from 'react'
 import styled, { keyframes } from 'styled-components'
+
+const CARD_WIDTH = 480
+const VIEWPORT_GUTTER = 32
+const GRIP = 10
 
 export const fadeIn = keyframes`from { opacity: 0 } to { opacity: 1 }`
 export const slideUp = keyframes`from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) }`
@@ -17,7 +21,7 @@ export const Backdrop = styled.div`
 `
 
 export const Card = styled.div`
-  width: 480px;
+  width: ${CARD_WIDTH}px;
   background: ${({ theme }) => theme.colors.bg.secondary};
   border: 1px solid ${({ theme }) => theme.colors.border.default};
   border-radius: ${({ theme }) => theme.radius.xl};
@@ -94,12 +98,118 @@ interface ModalBackdropProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function ModalBackdrop({ onClose, children, ...rest }: ModalBackdropProps) {
+  const pressedOnBackdrop = useRef(false)
   return (
     <Backdrop
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onPointerDown={(e) => { pressedOnBackdrop.current = e.target === e.currentTarget }}
+      // A drag that starts in the card (resize, text selection) and ends on the backdrop clicks the backdrop.
+      onClick={(e) => { if (pressedOnBackdrop.current && e.target === e.currentTarget) onClose() }}
       {...rest}
     >
       {children}
     </Backdrop>
+  )
+}
+
+type Edge = -1 | 0 | 1
+
+const GRIPS: [Edge, Edge][] = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+]
+
+function gripPlacement(edge: Edge, start: string, end: string, size: string): string {
+  if (edge === 0) return `${start}: ${GRIP / 2}px; ${end}: ${GRIP / 2}px;`
+  return `${edge < 0 ? start : end}: ${-GRIP / 2}px; ${size}: ${GRIP}px;`
+}
+
+function gripCursor(x: Edge, y: Edge): string {
+  if (x === 0) return 'ns-resize'
+  if (y === 0) return 'ew-resize'
+  return x === y ? 'nwse-resize' : 'nesw-resize'
+}
+
+const ResizableFrame = styled(Card)`
+  position: relative;
+`
+
+const Grip = styled.div<{ $x: Edge; $y: Edge }>`
+  position: absolute;
+  ${({ $x }) => gripPlacement($x, 'left', 'right', 'width')}
+  ${({ $y }) => gripPlacement($y, 'top', 'bottom', 'height')}
+  cursor: ${({ $x, $y }) => gripCursor($x, $y)};
+`
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
+}
+
+interface CardSize {
+  width: number
+  height: number
+}
+
+function readStoredSize(storageKey: string): CardSize | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(storageKey) ?? 'null')
+    return Number.isFinite(parsed?.width) && Number.isFinite(parsed?.height) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+interface ResizableCardProps {
+  storageKey: string
+  children: ReactNode
+}
+
+export function ResizableCard({ storageKey, children }: ResizableCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState<CardSize | null>(() => readStoredSize(storageKey))
+
+  const startResize = (x: Edge, y: Edge) => (e: React.PointerEvent<HTMLDivElement>) => {
+    const card = cardRef.current
+    if (!card || e.button !== 0) return
+    e.preventDefault()
+    const grip = e.currentTarget
+    grip.setPointerCapture(e.pointerId)
+    const start = card.getBoundingClientRect()
+    const { clientX: originX, clientY: originY } = e
+    let latest: CardSize | null = null
+
+    const onMove = (ev: PointerEvent) => {
+      // The card stays centred, so each edge moves half the size change: double it to keep the edge under the pointer.
+      latest = {
+        width: clamp(start.width + 2 * x * (ev.clientX - originX), CARD_WIDTH, window.innerWidth - VIEWPORT_GUTTER),
+        height: clamp(start.height + 2 * y * (ev.clientY - originY), 0, window.innerHeight - VIEWPORT_GUTTER),
+      }
+      setSize(latest)
+    }
+    const onEnd = () => {
+      if (latest) localStorage.setItem(storageKey, JSON.stringify(latest))
+      grip.removeEventListener('pointermove', onMove)
+      grip.removeEventListener('pointerup', onEnd)
+      grip.removeEventListener('pointercancel', onEnd)
+    }
+    grip.addEventListener('pointermove', onMove)
+    grip.addEventListener('pointerup', onEnd)
+    grip.addEventListener('pointercancel', onEnd)
+  }
+
+  return (
+    <ResizableFrame
+      ref={cardRef}
+      // min-height rather than height, so the card still grows when its content does (find bar, thumbnails).
+      style={size ? {
+        width: `min(${size.width}px, 100vw - ${VIEWPORT_GUTTER}px)`,
+        minHeight: `min(${size.height}px, 100vh - ${VIEWPORT_GUTTER}px)`,
+      } : undefined}
+    >
+      {children}
+      {GRIPS.map(([x, y]) => (
+        <Grip key={`${x}${y}`} $x={x} $y={y} onPointerDown={startResize(x, y)} aria-hidden />
+      ))}
+    </ResizableFrame>
   )
 }

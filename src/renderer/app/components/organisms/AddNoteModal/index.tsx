@@ -7,7 +7,7 @@ import { PersonSelector } from '../../molecules/PersonSelector'
 import { SentimentPicker, PersonSentimentRow } from '../../molecules/SentimentPicker'
 import { NoteEditor } from '../NoteEditor'
 import {
-  ModalBackdrop, Card, Header, Title, CloseBtn,
+  ModalBackdrop, ResizableCard, Header, Title, CloseBtn,
   Divider, Footer
 } from '../../molecules/ModalShell'
 
@@ -20,9 +20,14 @@ interface Props {
 }
 
 const Body = styled.div`
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing['2']};
+`
+
+const StyledNoteEditor = styled(NoteEditor)`
+  flex: 1;
 `
 
 const CharCount = styled.span<{ $warn: boolean }>`
@@ -214,7 +219,7 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
 
   return (
     <ModalBackdrop onClose={isDirty ? () => {} : onClose} onKeyDown={handleKeyDown}>
-      <Card>
+      <ResizableCard storageKey="note-modal-size">
         <Header>
           <Title>{isEditing ? 'Edit Note' : 'New Note'}</Title>
           <CloseBtn onClick={onClose} aria-label="Close">×</CloseBtn>
@@ -231,7 +236,7 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
             <SentimentPicker value={sentiment} onChange={setSentiment} compact />
           </PersonSentimentRow>
 
-          <NoteEditor
+          <StyledNoteEditor
             placeholder="What happened…"
             value={note}
             onChange={setNote}
@@ -287,7 +292,7 @@ export function AddNoteModal({ people, onClose, initialNote, initialPerson }: Pr
             {saved ? 'Saved ✓' : '⌘↵ Save'}
           </Button>
         </Footer>
-      </Card>
+      </ResizableCard>
     </ModalBackdrop>
   )
 }

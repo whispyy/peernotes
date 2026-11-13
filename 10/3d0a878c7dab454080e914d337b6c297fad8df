@@ -1,0 +1,28 @@
+src/renderer/app/components/organisms/AddNoteModal/index.tsx
+  s_1cfe6c22b601ad::t_d4b8e9c54c1774 222
+  s_1cfe6c22b601ad::t_d2d09c0d9424fc 10,23,29-32,239,295
+src/renderer/app/components/molecules/ModalShell/index.tsx
+  s_1cfe6c22b601ad::t_d68262836562cf 24
+  s_1cfe6c22b601ad::t_a6b211b7adfd09 1,4-6
+  s_1cfe6c22b601ad::t_e5d5335a085605 179,183,186-187,190
+  s_1cfe6c22b601ad::t_494062d28a75f4 148-167,169,215
+  s_1cfe6c22b601ad::t_884de768c258d5 101,104-106,113-147,168,170-178,180-182,184-185,188-189,191-213
+  s_1cfe6c22b601ad::t_75f29a0bded236 7
+  s_1cfe6c22b601ad::t_a58d8b034997b3 214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "103d0a878c7dab454080e914d337b6c297fad8df",
+  "prompts": {},
+  "sessions": {
+    "s_1cfe6c22b601ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dd18927f-5ccc-4e66-8677-e6a5105e807b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "JF Durand <jean-frederic.durand@qohash.com>"
+    }
+  }
+}
